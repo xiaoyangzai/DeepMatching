@@ -513,7 +513,7 @@ def calculate_common_nodes_between_cmties(s_nodes_list,d_nodes_list):
 	print "small length: %d" % len(small_node_list)
 	return float(common_count)/total_count
 
-def repeated_eavalute_accuracy_by_feature(G1,G2,throd_value = 0.75,limit_cmty_nodes = 10,method = euclidean_metric,detect_method = cnm.cmmunity_cnm):
+def repeated_eavalute_accuracy_by_feature(G1,G2,throd_value = 0.75,limit_cmty_nodes = 10,method = euclidean_metric,detect_method = cnm.community_cnm):
 	#print "sample rate: %.4f" % sample_rate
 	#print "limit cmty nodes: %d" % limit_cmty_nodes
 
