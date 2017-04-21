@@ -13,77 +13,6 @@ import cnm
 from sklearn.metrics.pairwise import *
 import snap
 
-def visualize(X, Y, ax=None, words = None):
-    pass
-    # plt.cla()
-    # ax.scatter(X[:,0] ,  X[:,1], color='red')
-    # ax.scatter(Y[:,0] ,  Y[:,1], color='blue')
-    # if words != None:
-    #     index = 0
-    #     for x, y in zip(X[:,0],  X[:,1]):
-    #         plt.text(x, y, words[index], color = 'red' )
-    #         index += 1
-    #
-    #     index = 0
-    #     for x, y in zip(Y[:, 0], Y[:, 1]):
-    #         plt.text(x, y, words[index], color='blue')
-    #         index += 1
-    # plt.draw()
-    # plt.pause(0.001)
-
-def nodes_embedding(G, p=1, q=1, dimensions=128):
-    # Extract the features for each node using node2vec
-    model = learn_nodevec(G, dimensions=dimensions, argp=p, argq=q, num_walks=100)
-    nodes = [word for word, vcab in model.vocab.iteritems()]
-    inds = [vcab.index for word, vcab in model.vocab.iteritems()]
-    X = model.syn0[inds]
-    return nodes,X
-
-
-def map_prob_maxtrix(G1, G2, p=1, q=1, dimensions=128):
-    # match the nodes according to the node feature based on Coherent Point Drift
-    nodes1, X = nodes_embedding(G1, p = p, q=q, dimensions=dimensions)
-    nodes2, Y = nodes_embedding(G2, p = p, q=q, dimensions=dimensions)
-    reg = AffineRegistration(Y, X)
-    callback = partial(visualize)
-    reg.register(callback)
-    P = reg.P
-    return (nodes1, nodes2, P)
-
-#def repeated_eavalute_accuracy(repeated=10, p=1.0, q=1.0, dimensions=64, sample_rate=0.9):
-#    accuracies = []
-#    for i in range(repeated):
-#        print i, '->',
-#        nx_G = nx.barabasi_albert_graph(500, 5)
-#        G1 = sample_graph(nx_G, sample_rate)
-#        G2 = sample_graph(nx_G, sample_rate)
-#        node1, node2, P = map_prob_maxtrix(G1, G2, p=p, q=q, dimensions=dimensions)
-#        count = 0
-#        for i in range(len(node2)):
-#            # print node1[i], node2[np.array(P[:, i]).argmax()], np.array(P[:, i]).max()
-#            if node2[i] == node1[np.array(P[:, i]).argmax()]:
-#                count += 1
-#        accuracies.append(count * 1.0 / nx_G.order())
-#    return accuracies
-
-
-
-#def repeated_eavalute_accuracy(repeated=10, p=1.0, q=1.0, dimensions=64, sample_rate=0.9,degree = 5):
-#    accuracies = []
-#    for i in range(repeated):
-#        print i, '->',
-#        nx_G = nx.barabasi_albert_graph(500, degree)
-#        G1 = sample_graph(nx_G, sample_rate)
-#        G2 = sample_graph(nx_G, sample_rate)
-#        node1, node2, P = map_prob_maxtrix(G1, G2, p=p, q=q, dimensions=dimensions)
-#        count = 0
-#        for i in range(len(node2)):
-#            # print node1[i], node2[np.array(P[:, i]).argmax()], np.array(P[:, i]).max()
-#            if node2[i] == node1[np.array(P[:, i]).argmax()]:
-#                count += 1
-#        accuracies.append(count * 1.0 / nx_G.order())
-#    return accuracies
-
 def transform_snap_to_networkx(SG):
 	'''
 	Transforming the graph of snap specified by the @SG to the graph of networkx
@@ -167,52 +96,13 @@ def community_detect_graph(G1,G2,detect_method = None):
 		SG2 = G2
 	SG1_ret_list = detect_method(SG1)
 	SG2_ret_list = detect_method(SG2)
-	#draw_partitions(G1,SG1_ret_list)
-	#draw_partitions(G2,SG2_ret_list)
 
 	running_time = time.time() - start_time
 	print "SG1 community size: %d \t SG2 community size :%d " % (len(SG1_ret_list),len(SG2_ret_list))
 	print "sample finished,running time :%d mins %d secs" % (int(running_time / 60),int(running_time % 60))
 	
 	return SG1,SG2,SG1_ret_list,SG2_ret_list
-
-
 	 
-	
-def repeated_eavalute_accuracy_cmty(G1,G2,nx_G,repeated=10, p=1.0, q=1.0, dimensions=64):
-	accuracies = []
-	for i in range(repeated):
-		print i,'->',
-		sys.stdout.flush()
-		node1, node2, P = map_prob_maxtrix(G1, G2, p=p, q=q, dimensions=dimensions)
-		count = 0
-		for i in range(len(node2)):
-			print node1[i], node2[np.array(P[:, i]).argmax()], np.array(P[:, i]).max()
-			if node2[i] == node1[np.array(P[:, i]).argmax()]:
-				count += 1
-		accuracies.append(count * 1.0 / nx_G.order())
-	return accuracies
-
-
-def repeated_eavalute_accuracy(G = None,repeated=10, p=1.0, q=1.0, dimensions=64, nodes = 500,sample_rate=1,degree = 5,handle_function = nx.barabasi_albert_graph):
-	accuracies = []
-	for i in range(repeated):
-		print i,'->',
-		sys.stdout.flush()
-		if (handle_function == None):
-			nx_G = G
-		else:
-			nx_G = handle_function(nodes, degree)
-		G1 = sample_graph(nx_G, sample_rate)
-		G2 = sample_graph(nx_G, sample_rate)
-		node1, node2, P = map_prob_maxtrix(G1, G2, p=p, q=q, dimensions=dimensions)
-		count = 0
-		for i in range(len(node2)):
-			print node1[i], node2[np.array(P[:, i]).argmax()], np.array(P[:, i]).max()
-			if node2[i] == node1[np.array(P[:, i]).argmax()]:
-				count += 1
-		accuracies.append(count * 1.0 / nx_G.order())
-	return accuracies
 	
 def transform_gml_to_networkx(gml_filename):
 	sf = open(gml_filename)
@@ -275,7 +165,7 @@ def load_graph_from_file(filename,comments = '#',delimiter = ' '):
 		
 
 def create_cmty_graph(nx_G,SG1_ret_list,SG2_ret_list):
-	'''create graph of which the communities of the list as the nodes and the count of the connection between the nodes from the different community as the weight value"
+	'''create graph of which the communities of the list as the nodes and the count of the connection between the nodes from the different community acts as the weight value"
 	'''
 	print "start create graph with the community geted from privous step......"
 	nx_SG1 = nx.Graph()
@@ -346,24 +236,6 @@ def draw_partitions(G, partitions):
     node_color = [partition_color.get(node, 'o') for node in G.nodes()]
     nx.draw_spring(G, node_color=node_color, with_labels=True)
     plt.show()
-
-
-def obtain_edges_of_cmty(G,nodes_list):
-	'''
-	obtain the edges of the community specified by nodes_degree_list 
-	'''
-	print "handle the number of edges in the cmty"
-	edges_list =  G.edges()
-	length = len(nodes_list)
-	edges = [] 
-	for i in range(0,length):
-		for j in range(i+1,length):
-			item = (nodes_list[i],nodes_list[j])
-			if item in edges_list:
-				edges.append(item)
-	print "handle the number of edges in the cmty....ok"
-	print "edges = %d" % edges
-	return edges 
 
 def obtain_degree_inter_cmty(G,nodes_list):
 	print "obtain inter degree of the cmty"
@@ -442,27 +314,28 @@ def obtain_feature_of_cmty(G,SG,nodes_list,throd):
 		8. triangles number of the maximun degree
 		9. modularity
 
-
-		8. maxmiun bs contained 1th,2th and 3th
-		7. average bs
-		8. midian bs
-		9. maxmiun cc of 1th ,2th and 3th
-		10. average cc
-		11. midian cc.
+		10. maxmiun bs contained 1th,2th and 3th
+		11. average bs
+		12. midian bs
+		13. average cc
+		14. midian cc.
 	'''
 	feature = []	
 	#obtain the outdegree of the community
 	outdegree = obtain_degree_extern_cmty(G,nodes_list)
 	feature.append(outdegree)
+
 	#1.calculate number of nodes in community
 	feature.append(len(nodes_list))
-	# degree of the nodes
+
+	#degree of the nodes
 	degree_nodes,edges = obtain_degree_inter_cmty(G,nodes_list)
+
 	#2. count the number of edges in community
-	#edges = obtain_edges_of_cmty(G,nodes_list)
 	degree_list = [item[1] for item in degree_nodes]
 	edges_count = sum(degree_list) / 2
 	feature.append(edges_count)
+
 	#3.obtain the max three maxmiun value of degree
 	degree_nodes = sorted(degree_nodes,key=lambda x:x[1],reverse = True)
 	for i in range(int(throd * 0.75)):
@@ -473,6 +346,7 @@ def obtain_feature_of_cmty(G,SG,nodes_list,throd):
 	midian_degree = obtain_midian_list(degree_list)
 	feature.append(average_degree)
 	feature.append(midian_degree)
+
 	#density of the community
 	d = float(2 * edges_count) / (len(nodes_list) *(len(nodes_list) - 1))
 	feature.append(d)
@@ -481,11 +355,6 @@ def obtain_feature_of_cmty(G,SG,nodes_list,throd):
 
 	for i in range(int(throd * 0.75)):
 		max_degree_nodes_list.append(degree_nodes[i][0])
-#	max_degree_nodes_list.append(degree_nodes[1][0])
-#	max_degree_nodes_list.append(degree_nodes[2][0])
-#	max_degree_nodes_list.append(degree_nodes[3][0])
-#	max_degree_nodes_list.append(degree_nodes[4][0])
-#	max_degree_nodes_list.append(degree_nodes[5][0])
 	triangles_count = obtain_triangles_count(G,max_degree_nodes_list)
 	for k in triangles_count:
 		feature.append(triangles_count[k])
@@ -495,7 +364,7 @@ def obtain_feature_of_cmty(G,SG,nodes_list,throd):
 	midian_bs = obtain_midian_list(between_centrality_list)
 	between_centrality_list = sorted(between_centrality_list,reverse=True)
 
-	###max bs 
+	#max bs 
 	for i in range(int(throd * 0.75)):
 		feature.append(between_centrality_list[i])
 	average_bs = float(sum(between_centrality_list)) / len(between_centrality_list)
@@ -508,9 +377,8 @@ def obtain_feature_of_cmty(G,SG,nodes_list,throd):
 		    Nodes.Add(nodeId)
 	modularity = snap.GetModularity(SG,Nodes) 
 	feature.append(modularity*1000)
-	#print "modularity: %.5f" % modularity
 
-	##5 calculate clustering coefficients
+	#5 calculate clustering coefficients
 	cc = obtain_clustering_coefficient(G,nodes_list)
 	average_cc = float(sum(cc)) / len(cc)
 	midian_cc = obtain_midian_list(cc)
@@ -815,9 +683,6 @@ def main():
 	df.write("arverage: %.5f\n"% (sum_acc / repeated_count))
 	df.write("########################################################################\n")
 	df.flush()
-
-		#rate_deepmatching = obtain_accuracy_rate_by_deepmatching(left_graph,right_graph,matched_index,left_cmty_list,right_cmty_list)
-
 
 	print "mapping community finished!!"
 	return 0
