@@ -12,6 +12,7 @@ import sys
 import cnm
 from sklearn.metrics.pairwise import *
 import snap
+import deepMatching as dm
 
 def transform_snap_to_networkx(SG):
 	'''
@@ -163,6 +164,11 @@ def load_graph_from_file(filename,comments = '#',delimiter = ' '):
 	sf.close()
 	return G
 		
+def create_graph_with_cmty(G,nodes_list):
+	
+	return
+
+
 
 def create_cmty_graph(nx_G,SG1_ret_list,SG2_ret_list):
 	'''create graph of which the communities of the list as the nodes and the count of the connection between the nodes from the different community acts as the weight value"
@@ -621,7 +627,27 @@ def calculate_accuracy_rate_by_feature(SG1,SG1_new_cmty,SG2,SG2_new_cmty,score_l
 	print "total count: %d" % loop_count
 	print "accuracy rate: %.5f" % accuracy_rate
 	return accuracy_rate,big_G,small_G,big_new_cmty,small_new_cmty,matched_index
-	
+
+
+def obtain_accuracy_rate_in_matched_cmty(left_graph,left_cmty_list,right_graph,right_cmty_list,matched_cmty_index_pairs) 
+	matched_nodes_number = []
+
+	for item in matched_cmty_index_pairs:
+		left_index = item[0]
+		right_index = item[1]
+
+		#tansfrom the community to the graph
+		G1 = create_graph_with_cmty(left_graph,left_cmty_list[left_index]):
+		G2 = create_graph_with_cmty(right_graph,right_cmty_list[right_index]):
+		
+		#mapping the nodes between the communities
+		node1, node2, P = dm.map_prob_maxtrix(G1, G2, p=p, q=q, dimensions=dimensions)
+		count = 0
+		for i in range(len(node2)):
+			if node2[i] == node1[np.array(P[:, i]).argmax()]:
+				count += 1
+		matched_nodes_number.append(count)
+	return matched_nodes_number	
 
 
 def main():
@@ -661,7 +687,7 @@ def main():
 		sys.stdout.flush()
 		G1,G2 = bi_sample_graph(nx_G,sample_rate)
 
-		rate,left_graph,right_graph,left_cmty_list,right_cmty_list,matched_index = repeated_eavalute_accuracy_by_feature(G1,G2,limit_cmty_nodes = throd_value)
+		old_rate,left_graph,right_graph,left_cmty_list,right_cmty_list,matched_index = repeated_eavalute_accuracy_by_feature(G1,G2,limit_cmty_nodes = throd_value)
 		df.write("%ith loop:\n"%i)
 		df.write("G1 cmty length distribution: ")
 		for index in left_cmty_list:
@@ -673,7 +699,9 @@ def main():
 			df.write("%i " % (len(index)))
 			df.flush()
 		df.write("\n")
-		rate_list.append(rate)
+
+		new_rate = obtain_accuracy_rate_in_matched_cmty(left_graph,left_cmty_list,right_graph,right_cmty_list,matched_index) 
+		rate_list.append(new_rate)
 		sum_acc += rate
 	df.write("accuracy rate array: ")
 	df.flush()
