@@ -645,14 +645,14 @@ def calculate_common_nodes_between_cmties(s_nodes_list,d_nodes_list):
 	print "small length: %d" % len(small_node_list)
 	return float(common_count)/total_count
 
-def repeated_eavalute_accuracy_by_feature(G1,G2,throd_value = 0.75,limit_cmty_nodes = 10,method = euclidean_metric):
+def repeated_eavalute_accuracy_by_feature(G1,G2,throd_value = 0.75,limit_cmty_nodes = 10,method = euclidean_metric,detect_method = cnm.cmmunity_cnm):
 	#print "sample rate: %.4f" % sample_rate
 	#print "limit cmty nodes: %d" % limit_cmty_nodes
 
 
 	# The type of SG1 and SG2 is the type Snap needs 
 	# SG1_ret_list and SG2_ret_list is the result of the detection of graph
-	SG1,SG2,SG1_ret_list,SG2_ret_list = community_detect_graph(G1,G2,detect_method = cnm.community_cnm)
+	SG1,SG2,SG1_ret_list,SG2_ret_list = community_detect_graph(G1,G2,detect_method = detect_method)
 
 	# The SG1_rest_small_cmty, same as SG2_rest_small_cmty, holds the communities in which the nodes is lower than the throd. The SG1_new_cmty_list just includes the eligible communities.
 	SG1_eligible_cmty_list,SG1_features_list = obtain_cmty_feature_array(G1,SG1,SG1_ret_list,limit_cmty_nodes)
