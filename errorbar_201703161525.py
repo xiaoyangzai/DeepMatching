@@ -30,7 +30,7 @@ def draw_sample_accuracy_rate_errorbar(accuracy_sample_dic):
 	ax.errorbar(x_range,y_range,yerr=y_std,fmt="r-o" ,color = "green",elinewidth=2)
 	ax.yaxis.set_major_locator(MultipleLocator(0.05));
 	ax.set_xticks([i/100. for i in range(0,120,5)])
-	plt.title("Accuract rate in different sample %i - %i" % (x_range[0],x_range[-1]))
+	plt.title("Accuract rate in the sample range(%.2f - %.2f)" % (x_range[0],x_range[-1]))
 	plt.ylabel("Accuracy Rate")
 	plt.xlabel("Sample Range")
 	plt.show()
