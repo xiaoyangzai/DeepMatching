@@ -517,9 +517,9 @@ def calculate_common_nodes_between_cmties(s_nodes_list,d_nodes_list):
 	print d_nodes_list[:8]
 	print "common nodes count: %d" % common_count
 	print "small length: %d" % len(small_node_list)
-	return float(common_count)/total_count
+	return float(common_count)/total_count,common_count
 
-def repeated_eavalute_accuracy_by_feature(G1,G2,throd_value = 0.75,limit_cmty_nodes = 10,method = euclidean_metric,detect_method = cnm.community_cnm_with_limit):
+def repeated_eavalute_accuracy_by_feature(G1,G2,throd_value = 0.75,limit_cmty_nodes = 10,method = euclidean_metric,detect_method = cnm.community_cnm):
 	#print "sample rate: %.4f" % sample_rate
 	#print "limit cmty nodes: %d" % limit_cmty_nodes
 
@@ -592,7 +592,6 @@ def calculate_accuracy_rate_by_feature(SG1,SG1_new_cmty,SG2,SG2_new_cmty,score_l
 		if len(similarity_list) == 0:
 			print "guasee matched: %d  ==>  %d" %(i,first_matched_index)
 			print "socre: %.5f" % score_list[i][first_matched_index]
-			matched_index.append([i,first_matched_index])
 			print "cmty: %d" % i
 			print big_new_cmty[i][:10]
 			print big_feature[i]
@@ -600,7 +599,8 @@ def calculate_accuracy_rate_by_feature(SG1,SG1_new_cmty,SG2,SG2_new_cmty,score_l
 			print small_new_cmty[first_matched_index][:10]
 			print small_feature[first_matched_index]
 			#calculate the common node between ith community of SG1 and first matched community of SG2
-			temp_rate = calculate_common_nodes_between_cmties(big_new_cmty[i],small_new_cmty[first_matched_index]) 
+			temp_rate,common_nodes = calculate_common_nodes_between_cmties(big_new_cmty[i],small_new_cmty[first_matched_index]) 
+			matched_index.append([i,first_matched_index,common_nodes])
 			if temp_rate >= throd_value:
 				matched_count += 1
 				print "matched count: %d" % matched_count
@@ -611,8 +611,8 @@ def calculate_accuracy_rate_by_feature(SG1,SG1_new_cmty,SG2,SG2_new_cmty,score_l
 				print "unmatched count: %d" % unmatched_count
 			continue
 		print "best candidate: %d" % C_index
-		matched_index.append([i,C_index])
-		temp_rate = calculate_common_nodes_between_cmties(big_new_cmty[i],small_new_cmty[C_index]) 
+		temp_rate,common_nodes = calculate_common_nodes_between_cmties(big_new_cmty[i],small_new_cmty[C_index]) 
+		matched_index.append([i,C_index,common_nodes])
 		print "rate: %.4f" % temp_rate
 		if temp_rate >= throd_value:
 			print "mapping successful!"
@@ -628,23 +628,28 @@ def calculate_accuracy_rate_by_feature(SG1,SG1_new_cmty,SG2,SG2_new_cmty,score_l
 	print "accuracy rate: %.5f" % accuracy_rate
 	return accuracy_rate,big_G,small_G,big_new_cmty,small_new_cmty,matched_index
 
-def obtain_accuracy_rate_in_matched_cmty(left_graph,left_cmty_list,right_graph,right_cmty_list,matched_cmty_index_pairs):
+def obtain_accuracy_rate_in_matched_cmty(left_graph,left_cmty_list,right_graph,right_cmty_list,matched_cmty_index_pairs,dimensions=65):
 	matched_nodes_number = []
 	for item in matched_cmty_index_pairs:
 		left_index = item[0]
 		right_index = item[1]
+		common_nodes = item[2]
 
+		print "%i -> %i common nodes: %d" % (left_index,right_index,common_nodes)
 		#tansfrom the community to the graph
 		G1 = left_graph.subgraph(left_cmty_list[left_index])
 		G2 = right_graph.subgraph(right_cmty_list[right_index])
 		
 		#mapping the nodes between the communities
-		node1, node2, P = dm.map_prob_maxtrix(G1, G2,dimensions=70)
+		print "map prob maxtrix....."
+		node1, node2, P = dm.map_prob_maxtrix(G1, G2,dimensions=dimensions)
 		count = 0
 		for i in range(len(node2)):
 			if node2[i] == node1[np.array(P[:, i]).argmax()]:
 				count += 1
-		matched_nodes_number.append(count)
+		matched_nodes_number.append([common_nodes,count])
+		print "map prob maxtrix....OK"
+		print "matched nodes count: %d" % count
 	return matched_nodes_number	
 
 
@@ -698,15 +703,32 @@ def main():
 			df.flush()
 		df.write("\n")
 
-		#new_rate = obtain_accuracy_rate_in_matched_cmty(left_graph,left_cmty_list,right_graph,right_cmty_list,matched_index) 
 		rate_list.append(old_rate)
 		sum_acc += old_rate
-	df.write("accuracy rate array: ")
+		
+		# the dimensions of feature of the nodes obtained by node2vec
+		dimensions = 65
+		matched_nummber_nodes = obtain_accuracy_rate_in_matched_cmty(left_graph,left_cmty_list,right_graph,right_cmty_list,matched_index,dimensions) 
+		
+		
+			
+	df.write("accuracy rate array of community mapping: ")
 	df.flush()
 	for item in rate_list:
 		df.write("%.4f " % item)
+		df.flush()
 	df.write("\n")
 	df.write("arverage: %.5f\n"% (sum_acc / repeated_count))
+	df.flush()
+	
+	df.write("dimensions: %.2f\n" % dimensions)
+	df.write("node2vec results: ")
+	for item in matched_nummber_nodes:
+		common_nodes = item[0]
+		node2vec_map_nodes = item[1]
+		df.write("%d-%d " % (common_nodes,node2vec_map_nodes))
+		df.flush()
+	df.write('\n')
 	df.write("########################################################################\n")
 	df.flush()
 

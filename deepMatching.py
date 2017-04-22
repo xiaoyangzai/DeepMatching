@@ -12,6 +12,9 @@ import time
 from graph_matching import sample_graph
 import sys
 
+def visualize(X, Y, ax=None, words = None):
+    pass
+
 def nodes_embedding(G, p=1, q=1, dimensions=128):
     # Extract the features for each node using node2vec
     model = learn_nodevec(G, dimensions=dimensions, argp=p, argq=q, num_walks=100)
