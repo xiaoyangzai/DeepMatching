@@ -685,6 +685,7 @@ def main():
 	print "begin to map community....."	
 	sum_acc = 0.0
 	rate_list = []
+	dimensions = 60 
 	for i in range(repeated_count):
 		print "->%d"%i ,
 		sys.stdout.flush()
@@ -707,10 +708,17 @@ def main():
 		sum_acc += old_rate
 		
 		# the dimensions of feature of the nodes obtained by node2vec
-		dimensions = 65
 		matched_nummber_nodes = obtain_accuracy_rate_in_matched_cmty(left_graph,left_cmty_list,right_graph,right_cmty_list,matched_index,dimensions) 
-		
-		
+		df.write("dimensions: %.2f\n" % dimensions)
+		dimensions += 5
+		df.write("deepwalk results: ")
+		for item in matched_nummber_nodes:
+			common_nodes = item[0]
+			node2vec_map_nodes = item[1]
+			df.write("%d-%d " % (common_nodes,node2vec_map_nodes))
+			df.flush()
+		df.write('\n')
+		df.flush()
 			
 	df.write("accuracy rate array of community mapping: ")
 	df.flush()
@@ -719,16 +727,6 @@ def main():
 		df.flush()
 	df.write("\n")
 	df.write("arverage: %.5f\n"% (sum_acc / repeated_count))
-	df.flush()
-	
-	df.write("dimensions: %.2f\n" % dimensions)
-	df.write("node2vec results: ")
-	for item in matched_nummber_nodes:
-		common_nodes = item[0]
-		node2vec_map_nodes = item[1]
-		df.write("%d-%d " % (common_nodes,node2vec_map_nodes))
-		df.flush()
-	df.write('\n')
 	df.write("########################################################################\n")
 	df.flush()
 

@@ -47,8 +47,8 @@ def debug(type_, value, tb):
     pdb.pm()
 
 
-def process(input, undirected=True, number_walks=10, walk_length=40, window_size=5, workers=1, dimensions=64, max_memory_data_size=1000000000, seed=0, vertex_freq_degree=False):
-    G = graph.load_edgelist(input, undirected=undirected)
+def process(edges_list, undirected=True, number_walks=10, walk_length=40, window_size=5, workers=1, dimensions=64, max_memory_data_size=1000000000, seed=0, vertex_freq_degree=False):
+    G = graph.load_edgelist(edges_list, undirected=undirected)
 
     #print("Number of nodes: {}".format(len(G.nodes())))
 
