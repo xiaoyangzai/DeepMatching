@@ -80,10 +80,10 @@ def community_detect_graph(G1,G2,detect_method = None):
 	if detect_method == cnm.community_cnm_with_limit:
 		SG1 = transform_networkx_to_snap(G1)
 		SG2 = transform_networkx_to_snap(G2)
-		print "limit nodes of the community for G1 : %d" % (len(G1.nodes()) / 6)
-		SG1_ret_list = detect_method(SG1,len(G1.nodes())/10)
-		print "limit nodes of the community for G2 : %d" % (len(G2.nodes()) / 6)
-		SG2_ret_list = detect_method(SG2,len(G2.nodes()) / 10)
+		print "limit nodes of the community for G1 : %d" % (len(G1.nodes()) / 8)
+		SG1_ret_list = detect_method(SG1,len(G1.nodes())/8)
+		print "limit nodes of the community for G2 : %d" % (len(G2.nodes()) / 8)
+		SG2_ret_list = detect_method(SG2,len(G2.nodes()) /8)
 		print "SG1 community size: %d \t SG2 community size :%d " % (len(SG1_ret_list),len(SG2_ret_list))
 		running_time = time.time() - start_time
 		print "sample finished,running time :%d mins %d secs" % (int(running_time / 60),int(running_time % 60))
@@ -164,10 +164,6 @@ def load_graph_from_file(filename,comments = '#',delimiter = ' '):
 	sf.close()
 	return G
 		
-def create_graph_with_cmty(G,nodes_list):
-	
-	return
-
 
 
 def create_cmty_graph(nx_G,SG1_ret_list,SG2_ret_list):
@@ -446,12 +442,16 @@ def obtain_cmty_feature_array(G,SG,cmty_list,throd_value):
 		else:
 			new_cmty_list.append(cmty)
 	
-	#join the small community into community with which it is most connected
-	if len(rest_small_cmty) > 0:
-		eligible_cmty_list = merge_small_community(G,rest_small_cmty,new_cmty_list)
-	else:
-		eligible_cmty_list = new_cmty_list
-	print "hanld the cmty with throd..ok"
+	#neglect the small size community
+	eligible_cmty_list = new_cmty_list
+
+	
+	##join the small community into community with which it is most connected
+	#if len(rest_small_cmty) > 0:
+	#	eligible_cmty_list = merge_small_community(G,rest_small_cmty,new_cmty_list)
+	#else:
+	#	eligible_cmty_list = new_cmty_list
+	#print "hanld the cmty with throd..ok"
 	loop_index = 0
 	for cmty in eligible_cmty_list:
 		print "cmty: %d" % loop_index
@@ -519,7 +519,7 @@ def calculate_common_nodes_between_cmties(s_nodes_list,d_nodes_list):
 	print "small length: %d" % len(small_node_list)
 	return float(common_count)/total_count
 
-def repeated_eavalute_accuracy_by_feature(G1,G2,throd_value = 0.75,limit_cmty_nodes = 10,method = euclidean_metric,detect_method = cnm.community_cnm):
+def repeated_eavalute_accuracy_by_feature(G1,G2,throd_value = 0.75,limit_cmty_nodes = 10,method = euclidean_metric,detect_method = cnm.community_cnm_with_limit):
 	#print "sample rate: %.4f" % sample_rate
 	#print "limit cmty nodes: %d" % limit_cmty_nodes
 
@@ -628,20 +628,18 @@ def calculate_accuracy_rate_by_feature(SG1,SG1_new_cmty,SG2,SG2_new_cmty,score_l
 	print "accuracy rate: %.5f" % accuracy_rate
 	return accuracy_rate,big_G,small_G,big_new_cmty,small_new_cmty,matched_index
 
-
-def obtain_accuracy_rate_in_matched_cmty(left_graph,left_cmty_list,right_graph,right_cmty_list,matched_cmty_index_pairs) 
+def obtain_accuracy_rate_in_matched_cmty(left_graph,left_cmty_list,right_graph,right_cmty_list,matched_cmty_index_pairs):
 	matched_nodes_number = []
-
 	for item in matched_cmty_index_pairs:
 		left_index = item[0]
 		right_index = item[1]
 
 		#tansfrom the community to the graph
-		G1 = create_graph_with_cmty(left_graph,left_cmty_list[left_index]):
-		G2 = create_graph_with_cmty(right_graph,right_cmty_list[right_index]):
+		G1 = left_graph.subgraph(left_cmty_list[left_index])
+		G2 = right_graph.subgraph(right_cmty_list[right_index])
 		
 		#mapping the nodes between the communities
-		node1, node2, P = dm.map_prob_maxtrix(G1, G2, p=p, q=q, dimensions=dimensions)
+		node1, node2, P = dm.map_prob_maxtrix(G1, G2,dimensions=70)
 		count = 0
 		for i in range(len(node2)):
 			if node2[i] == node1[np.array(P[:, i]).argmax()]:
@@ -652,7 +650,7 @@ def obtain_accuracy_rate_in_matched_cmty(left_graph,left_cmty_list,right_graph,r
 
 def main():
 	if len(sys.argv) < 6:
-		print "usage: ./deepmatching_for_cmty.py [filename] [sample rate]  [community throd] [loop count] [score function]"
+		print "usage: ./deepmatching_for_cmty.py [filename] [sample rate]  [community throd] [loop count] [distance function]"
 		return -1
 	sample_rate = float(sys.argv[2])
 	throd_value = int(sys.argv[3])
@@ -700,9 +698,9 @@ def main():
 			df.flush()
 		df.write("\n")
 
-		new_rate = obtain_accuracy_rate_in_matched_cmty(left_graph,left_cmty_list,right_graph,right_cmty_list,matched_index) 
-		rate_list.append(new_rate)
-		sum_acc += rate
+		#new_rate = obtain_accuracy_rate_in_matched_cmty(left_graph,left_cmty_list,right_graph,right_cmty_list,matched_index) 
+		rate_list.append(old_rate)
+		sum_acc += old_rate
 	df.write("accuracy rate array: ")
 	df.flush()
 	for item in rate_list:
