@@ -693,24 +693,31 @@ def obtain_seed_accuracy_rate(small_G,long_G,matched_nodes_pairs,deepwalk_common
 
 	while len(untreated_nodes_list) > 0:
 		source_node = untreated_nodes_list.pop(0)
-		matched_source_node = matched_nodes_pairs[source_node]
-		neighbor_nodes_list = small_G.neighbors(source_node)
-		while len(neighbor_nodes_list) > 0:
-			dest_node = neighbor_nodes_list.pop(0)
-			matched_dest_node = matched_nodes_pairs[dest_node]
+		dest_node = matched_nodes_pairs[source_node]
+		source_neighbor_nodes_list = small_G.neighbors(source_node)
+		dest_neighbour_nodes_list = long_G.neighbors(dest_node)
 
-			if (matched_source_node,matched_dest_node) in long_G_edges_list or (matched_dest_node,matched_source_node) in long_G_edges_list:
-				if source_node not in eligible_seed_nodes_list:
-					eligible_seed_nodes_list.append(source_node)			
-				if dest_node not in eligible_seed_nodes_list:
-					eligible_seed_nodes_list.append(dest_node)
+		common_matched_neighbor_count = 0
+		#whether long_neighbor_nodes_list includes the small_neighbor_nodes_list
+		for node in source_neighbor_nodes_list:
+			temp = matched_nodes_pairs[node]
+			if temp in dest_neighbour_nodes_list:
+				common_matched_neighbor_count += 1
+
+		small_neighbor_nodes_count = len(source_neighbor_nodes_list) if len(source_neighbor_nodes_list) <= len(dest_neighbour_nodes_list) else len(dest_neighbour_nodes_list)
+		if common_matched_neighbor_count >= small_neighbor_nodes_count:
+			eligible_seed_nodes_list.append(source_node)			
 	#idientify the nodes which appear both in eligible seed nodes list and the deepwalk common nodes list.	
 	for node in eligible_seed_nodes_list:
 		if node in deepwalk_common_nodes_list:
 			seed_nodes_list.append(node)
 	seed_node_number = len(seed_nodes_list)
-	print "seed nodes length: %d" % seed_node_number
-	rate = float(seed_node_number) / len(eligible_seed_nodes_list)
+	print "number of the eligible nodes: %d" % len(eligible_seed_nodes_list)
+	print "number of common nodes: %d" % seed_node_number
+	if len(eligible_seed_nodes_list) == 0:
+		rate = 0
+	else:
+		rate = float(seed_node_number) / len(eligible_seed_nodes_list)
 	return rate,seed_nodes_list,eligible_seed_nodes_list
 
 
