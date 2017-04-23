@@ -505,19 +505,20 @@ def calculate_common_nodes_between_cmties(s_nodes_list,d_nodes_list):
 		return 0
 	small_node_list = s_nodes_list if len(s_nodes_list) <= len(d_nodes_list) else d_nodes_list
 	big_node_list = s_nodes_list if len(s_nodes_list) > len(d_nodes_list) else d_nodes_list
-	common_count = 0
+	common_nodes_list = []
 	total_count = len(small_node_list) 
 	for node in small_node_list:
 		if node in big_node_list:
-			common_count += 1
+			common_nodes_list.append(node)
 	
 	print "source cmty: ",
 	print s_nodes_list[:8]
 	print "dest cmty: ",
 	print d_nodes_list[:8]
+	common_count = len(common_nodes_list)
 	print "common nodes count: %d" % common_count
 	print "small length: %d" % len(small_node_list)
-	return float(common_count)/total_count,common_count
+	return float(common_count)/total_count,common_nodes_list
 
 def repeated_eavalute_accuracy_by_feature(G1,G2,throd_value = 0.75,limit_cmty_nodes = 10,method = euclidean_metric,detect_method = cnm.community_cnm):
 	#print "sample rate: %.4f" % sample_rate
@@ -599,8 +600,8 @@ def calculate_accuracy_rate_by_feature(SG1,SG1_new_cmty,SG2,SG2_new_cmty,score_l
 			print small_new_cmty[first_matched_index][:10]
 			print small_feature[first_matched_index]
 			#calculate the common node between ith community of SG1 and first matched community of SG2
-			temp_rate,common_nodes = calculate_common_nodes_between_cmties(big_new_cmty[i],small_new_cmty[first_matched_index]) 
-			matched_index.append([i,first_matched_index,common_nodes])
+			temp_rate,common_nodes_list = calculate_common_nodes_between_cmties(big_new_cmty[i],small_new_cmty[first_matched_index]) 
+			matched_index.append([i,first_matched_index,len(common_nodes_list)])
 			if temp_rate >= throd_value:
 				matched_count += 1
 				print "matched count: %d" % matched_count
@@ -611,8 +612,8 @@ def calculate_accuracy_rate_by_feature(SG1,SG1_new_cmty,SG2,SG2_new_cmty,score_l
 				print "unmatched count: %d" % unmatched_count
 			continue
 		print "best candidate: %d" % C_index
-		temp_rate,common_nodes = calculate_common_nodes_between_cmties(big_new_cmty[i],small_new_cmty[C_index]) 
-		matched_index.append([i,C_index,common_nodes])
+		temp_rate,common_nodes_list = calculate_common_nodes_between_cmties(big_new_cmty[i],small_new_cmty[C_index]) 
+		matched_index.append([i,C_index,len(common_nodes_list)])
 		print "rate: %.4f" % temp_rate
 		if temp_rate >= throd_value:
 			print "mapping successful!"
@@ -630,7 +631,10 @@ def calculate_accuracy_rate_by_feature(SG1,SG1_new_cmty,SG2,SG2_new_cmty,score_l
 
 def obtain_accuracy_rate_in_matched_cmty(left_graph,left_cmty_list,right_graph,right_cmty_list,matched_cmty_index_pairs,dimensions=65):
 	matched_nodes_number = []
+	seed_rate = []
+	seed_nodes_list = []
 	for item in matched_cmty_index_pairs:
+		matched_nodes_pairs = {} 
 		left_index = item[0]
 		right_index = item[1]
 		common_nodes = item[2]
@@ -639,18 +643,75 @@ def obtain_accuracy_rate_in_matched_cmty(left_graph,left_cmty_list,right_graph,r
 		#tansfrom the community to the graph
 		G1 = left_graph.subgraph(left_cmty_list[left_index])
 		G2 = right_graph.subgraph(right_cmty_list[right_index])
+
+		#judge the small number of nodes of graph
+		small_G = G1 if G1.order() <= G2.order() else G2
+		long_G = G1 if G1.order() > G2.order() else G2
+
 		
 		#mapping the nodes between the communities
 		print "map prob maxtrix....."
-		node1, node2, P = dm.map_prob_maxtrix(G1, G2,dimensions=dimensions)
+		long_node, small_node, P = dm.map_prob_maxtrix(long_G, small_G,dimensions=dimensions)
 		count = 0
-		for i in range(len(node2)):
-			if node2[i] == node1[np.array(P[:, i]).argmax()]:
+		deepwalk_common_nodes_list = []	
+		for i in range(len(small_node)):
+			#record the matched nodes obtained by deepwalk	
+			dest_node = long_node[np.array(P[:, i]).argmax()]
+			matched_nodes_pairs[small_node[i]] = dest_node
+			if small_node[i] == dest_node:
+				deepwalk_common_nodes_list.append(small_node[i])
 				count += 1
 		matched_nodes_number.append([common_nodes,count])
-		print "map prob maxtrix....OK"
 		print "matched nodes count: %d" % count
-	return matched_nodes_number	
+
+		
+		print "identification of seed rate....."
+		if count == 0:
+			seed_nodes_list.append([])
+			seed_rate.append(0)
+			print "identification of seed rate...OK"
+			continue
+		temp_seed_rate,seed_nodes,eligible_seed_nodes_list = obtain_seed_accuracy_rate(small_G,long_G,matched_nodes_pairs,deepwalk_common_nodes_list)
+		seed_nodes_list.append(seed_nodes)
+		print "seed rate: %.5f" % temp_seed_rate
+		print "identification of seed rate...OK"
+		seed_rate.append(temp_seed_rate)
+	print "map prob maxtrix....OK"
+	return matched_nodes_number,seed_rate,seed_nodes_list
+
+def obtain_seed_accuracy_rate(small_G,long_G,matched_nodes_pairs,deepwalk_common_nodes_list):
+	'''
+	obtain zhe seed nodes and the fraction of the number of the nodes in the list specified by argument @deepwalk_common_nodes_list 
+	return the seed nodes array and the accuracy rate between number of the nodes which locate at both   seed nodes array and deepwalk_common_list and the number of the deepwalk_common_nodes_list
+	Return type: list for the first one and float for another
+	'''
+	untreated_nodes_list = small_G.nodes()
+	small_G_edges_list = small_G.edges()
+	long_G_edges_list = long_G.edges()
+	eligible_seed_nodes_list = []
+	seed_nodes_list = []
+
+	while len(untreated_nodes_list) > 0:
+		source_node = untreated_nodes_list.pop(0)
+		matched_source_node = matched_nodes_pairs[source_node]
+		neighbor_nodes_list = small_G.neighbors(source_node)
+		while len(neighbor_nodes_list) > 0:
+			dest_node = neighbor_nodes_list.pop(0)
+			matched_dest_node = matched_nodes_pairs[dest_node]
+
+			if (matched_source_node,matched_dest_node) in long_G_edges_list or (matched_dest_node,matched_source_node) in long_G_edges_list:
+				if source_node not in eligible_seed_nodes_list:
+					eligible_seed_nodes_list.append(source_node)			
+				if dest_node not in eligible_seed_nodes_list:
+					eligible_seed_nodes_list.append(dest_node)
+	#idientify the nodes which appear both in eligible seed nodes list and the deepwalk common nodes list.	
+	for node in eligible_seed_nodes_list:
+		if node in deepwalk_common_nodes_list:
+			seed_nodes_list.append(node)
+	seed_node_number = len(seed_nodes_list)
+	print "seed nodes length: %d" % seed_node_number
+	rate = float(seed_node_number) / len(eligible_seed_nodes_list)
+	return rate,seed_nodes_list,eligible_seed_nodes_list
 
 
 def main():
@@ -685,7 +746,7 @@ def main():
 	print "begin to map community....."	
 	sum_acc = 0.0
 	rate_list = []
-	dimensions = 60 
+	dimensions = 90 
 	for i in range(repeated_count):
 		print "->%d"%i ,
 		sys.stdout.flush()
@@ -708,14 +769,22 @@ def main():
 		sum_acc += old_rate
 		
 		# the dimensions of feature of the nodes obtained by node2vec
-		matched_nummber_nodes = obtain_accuracy_rate_in_matched_cmty(left_graph,left_cmty_list,right_graph,right_cmty_list,matched_index,dimensions) 
+		matched_nummber_nodes,seed_rate,seed_nodes_list = obtain_accuracy_rate_in_matched_cmty(left_graph,left_cmty_list,right_graph,right_cmty_list,matched_index,dimensions) 
 		df.write("dimensions: %.2f\n" % dimensions)
-		dimensions += 5
-		df.write("deepwalk results: ")
+		seed_nodes_index = 0
+		df.write("deepwalk results[cmty-deepwalk-seed]: ")
 		for item in matched_nummber_nodes:
 			common_nodes = item[0]
-			node2vec_map_nodes = item[1]
-			df.write("%d-%d " % (common_nodes,node2vec_map_nodes))
+			deepwalk_map_nodes = item[1]
+			df.write("%d-%d-%d " % (common_nodes,deepwalk_map_nodes,len(seed_nodes_list[seed_nodes_index])))
+			seed_nodes_index += 1
+			df.flush()
+		df.write('\n')
+		df.flush()
+		#finding the seed nodes and calculating the accuracy rate
+		df.write("seed accuracy rate: ")
+		for item in seed_rate:
+			df.write(" %.5f" % item)
 			df.flush()
 		df.write('\n')
 		df.flush()
