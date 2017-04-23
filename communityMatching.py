@@ -651,16 +651,44 @@ def obtain_accuracy_rate_in_matched_cmty(left_graph,left_cmty_list,right_graph,r
 		
 		#mapping the nodes between the communities
 		print "map prob maxtrix....."
-		long_node, small_node, P = dm.map_prob_maxtrix(long_G, small_G,dimensions=dimensions)
+		small_node,long_node,P = dm.map_prob_maxtrix(small_G,long_G,dimensions=dimensions)
 		count = 0
+		long_loop_count = long_G.order()
 		deepwalk_common_nodes_list = []	
+
+
 		for i in range(len(small_node)):
+			#obtain ith row
+			similarity_list =[(index,P[i][index]) for index in range(long_loop_count)]
+			similarity_list = sorted(similarity_list,key=lambda x:x[1],reverse = True)
+			while len(similarity_list) > 0:
 			#record the matched nodes obtained by deepwalk	
-			dest_node = long_node[np.array(P[:, i]).argmax()]
-			matched_nodes_pairs[small_node[i]] = dest_node
-			if small_node[i] == dest_node:
-				deepwalk_common_nodes_list.append(small_node[i])
+				#obtain the similiarity list of the best one similiaried with the ith cmty from big community list
+				best_score = similarity_list[0][1]
+				C_index = similarity_list[0][0]
+
+				similarity_list.pop(0)
+
+				dest_similarity_list = []	
+				for item in P:
+					dest_similarity_list.append(item[C_index])
+
+				dest_similarity_list = sorted(dest_similarity_list,reverse=True)
+				if best_score < dest_similarity_list[0]:
+					continue;
+				break
+
+			if len(similarity_list) == 0:
+				#not finding the best matched node
+				continue
+			
+			#record the nodes pairs which is same one node as judeged by algorm
+			if best_score >= 1.0:
+				matched_nodes_pairs[small_node[i]] = long_node[C_index]
+
+			if small_node[i] == long_node[C_index]:
 				count += 1
+				deepwalk_common_nodes_list.append(small_node[i])
 		matched_nodes_number.append([common_nodes,count])
 		print "matched nodes count: %d" % count
 
@@ -685,27 +713,45 @@ def obtain_seed_accuracy_rate(small_G,long_G,matched_nodes_pairs,deepwalk_common
 	return the seed nodes array and the accuracy rate between number of the nodes which locate at both   seed nodes array and deepwalk_common_list and the number of the deepwalk_common_nodes_list
 	Return type: list for the first one and float for another
 	'''
-	untreated_nodes_list = small_G.nodes()
-	small_G_edges_list = small_G.edges()
-	long_G_edges_list = long_G.edges()
+
+	untreated_nodes_list = matched_nodes_pairs.keys()
 	eligible_seed_nodes_list = []
 	seed_nodes_list = []
-
+	if len(deepwalk_common_nodes_list) == 0:
+		return 0,seed_nodes_list,eligible_seed_nodes_list
+	small_G_edges_list = small_G.edges()
+	long_G_edges_list = long_G.edges()
+	
+	matched_left_nodes_list = matched_nodes_pairs.keys()
+	matched_right_nodes_list = [matched_nodes_pairs[key] for key in matched_nodes_pairs.keys()]
 	while len(untreated_nodes_list) > 0:
 		source_node = untreated_nodes_list.pop(0)
+
 		dest_node = matched_nodes_pairs[source_node]
-		source_neighbor_nodes_list = small_G.neighbors(source_node)
-		dest_neighbour_nodes_list = long_G.neighbors(dest_node)
+		#obtain the neighbor nodes which have matched before
+
+		source_neighbor_nodes_list =[node for node in small_G.neighbors(source_node) if node in  matched_left_nodes_list]
+		dest_neighbour_nodes_list = [node for node in long_G.neighbors(dest_node) if node in matched_right_nodes_list]
 
 		common_matched_neighbor_count = 0
+
 		#whether long_neighbor_nodes_list includes the small_neighbor_nodes_list
-		for node in source_neighbor_nodes_list:
+		while len(source_neighbor_nodes_list) > 0:
+			node = source_neighbor_nodes_list.pop(0)
 			temp = matched_nodes_pairs[node]
-			if temp in dest_neighbour_nodes_list:
-				common_matched_neighbor_count += 1
+			if temp not in dest_neighbour_nodes_list:
+				break
+			common_matched_neighbor_count += 1
 
 		small_neighbor_nodes_count = len(source_neighbor_nodes_list) if len(source_neighbor_nodes_list) <= len(dest_neighbour_nodes_list) else len(dest_neighbour_nodes_list)
-		if common_matched_neighbor_count >= small_neighbor_nodes_count:
+		#print "neighbor nodes matched count: %d" % common_matched_neighbor_count
+		#print "small neighbor nodes count: %d" % small_neighbor_nodes_count
+
+		#if common_matched_neighbor_count >= small_neighbor_nodes_count:
+		#if common_matched_neighbor_count >= len(source_neighbor_nodes_list):
+		if len(source_neighbor_nodes_list) > 0:
+			continue
+		if common_matched_neighbor_count >= len(dest_neighbour_nodes_list):
 			eligible_seed_nodes_list.append(source_node)			
 	#idientify the nodes which appear both in eligible seed nodes list and the deepwalk common nodes list.	
 	for node in eligible_seed_nodes_list:
@@ -722,8 +768,8 @@ def obtain_seed_accuracy_rate(small_G,long_G,matched_nodes_pairs,deepwalk_common
 
 
 def main():
-	if len(sys.argv) < 6:
-		print "usage: ./deepmatching_for_cmty.py [filename] [sample rate]  [community throd] [loop count] [distance function]"
+	if len(sys.argv) < 7:
+		print "usage: ./deepmatching_for_cmty.py [filename] [sample rate]  [community throd] [loop count] [distance function] [remarks]"
 		return -1
 	sample_rate = float(sys.argv[2])
 	throd_value = int(sys.argv[3])
@@ -737,6 +783,8 @@ def main():
 	print "result will be recorded in %s"%filename
 	df = open(filename,"a")
 	df.write("########################################################################\n")
+	df.write("date: %s\n" % ti.strftime("%Y-%m-%d %H:%M:%S",ti.localtime(ti.time())))
+	df.write("remarks: %s\n" % sys.argv[6])
 	df.write("dataset: %s\n" % sys.argv[1])
 	df.write("sample: %.2f\n" % float(sys.argv[2]))
 	df.write("similarity function: %s" % "euclidean_distance")
