@@ -13,6 +13,7 @@ import cnm
 from sklearn.metrics.pairwise import *
 import snap
 import deepMatching as dm
+from itertools import izip
 
 def transform_snap_to_networkx(SG):
 	'''
@@ -640,6 +641,8 @@ def obtain_accuracy_rate_in_matched_cmty(left_graph,left_cmty_list,right_graph,r
 		common_nodes = item[2]
 
 		print "%i -> %i common nodes: %d" % (left_index,right_index,common_nodes)
+		if common_nodes == 0:
+			continue
 		#tansfrom the community to the graph
 		G1 = left_graph.subgraph(left_cmty_list[left_index])
 		G2 = right_graph.subgraph(right_cmty_list[right_index])
@@ -683,7 +686,8 @@ def obtain_accuracy_rate_in_matched_cmty(left_graph,left_cmty_list,right_graph,r
 				continue
 			
 			#record the nodes pairs which is same one node as judeged by algorm
-			matched_nodes_pairs[small_node[i]] = long_node[C_index]
+			if best_score >= 1.0:
+				matched_nodes_pairs[small_node[i]] = long_node[C_index]
 
 			if small_node[i] == long_node[C_index]:
 				count += 1
@@ -713,7 +717,6 @@ def obtain_seed_accuracy_rate(small_G,long_G,matched_nodes_pairs,deepwalk_common
 	Return type: list for the first one and float for another
 	'''
 
-	untreated_nodes_list = matched_nodes_pairs.keys()
 	eligible_seed_nodes_list = []
 	seed_nodes_list = []
 	if len(deepwalk_common_nodes_list) == 0:
@@ -722,49 +725,86 @@ def obtain_seed_accuracy_rate(small_G,long_G,matched_nodes_pairs,deepwalk_common
 	long_G_edges_list = long_G.edges()
 	
 	matched_left_nodes_list = matched_nodes_pairs.keys()
-	matched_right_nodes_list = [matched_nodes_pairs[key] for key in matched_nodes_pairs.keys()]
-	while len(untreated_nodes_list) > 0:
-		source_node = untreated_nodes_list.pop(0)
-		#obtain the neighbor nodes which have matched before
+	reverse_matched_nodes_pairs = dict(izip(matched_nodes_pairs.itervalues(),matched_nodes_pairs.iterkeys()))
+	matched_right_nodes_list = reverse_matched_nodes_pairs.keys()
 
-		source_neighbor_nodes_list = small_G.neighbors(source_node)
-
-		eligible_nodes_list =[] 
-		for node in source_neighbor_nodes_list:
-			if node in matched_left_nodes_list:
-				eligible_nodes_list.append(node)
-		length = len(source_neighbor_nodes_list) * 0.5
-		if len(eligible_nodes_list) < length:
-			continue
+	while len(matched_left_nodes_list) > 0:
+		source_node = matched_left_nodes_list.pop(0)
 		dest_node = matched_nodes_pairs[source_node]
 		dest_neighbor_nodes_list = long_G.neighbors(dest_node)
-		eligible_edges_count = 0
-		for node in eligible_nodes_list:
-			matched_node = matched_nodes_pairs[node]
-			if matched_node in dest_neighbor_nodes_list:
-				eligible_edges_count += 1
-		print "eligible nodes: %d\teligible edges: %d\tneighbor nodes: %d" % (len(eligible_nodes_list),eligible_edges_count,len(source_neighbor_nodes_list))
-		if eligible_edges_count >= len(eligible_nodes_list) * 0.75:
-			eligible_seed_nodes_list.append(source_node)			
+		source_neighbor_nodes_list = small_G.neighbors(source_node)
 
-		#small_neighbor_nodes_count = len(source_neighbor_nodes_list) if len(source_neighbor_nodes_list) <= len(dest_neighbour_nodes_list) else len(dest_neighbour_nodes_list)
-		#print "neighbor nodes matched count: %d" % common_matched_neighbor_count
-		#print "small neighbor nodes count: %d" % small_neighbor_nodes_count
+		#obtain the feature of the source node
+		source_node_degree = small_G.degree(source_node)
+		source_matched_neighbor_nodes_list = []
+		edges_uniformity_count = 0
+		for node in source_neighbor_nodes_list:
+			if node in matched_left_nodes_list:
+				temp_matched_node = matched_nodes_pairs[node]
+				source_matched_neighbor_nodes_list.append(node)
+				if temp_matched_node in matched_right_nodes_list and temp_matched_node in dest_neighbor_nodes_list:
+					edges_uniformity_count += 1
 
-		#if common_matched_neighbor_count >= small_neighbor_nodes_count:
-		#if common_matched_neighbor_count >= len(source_neighbor_nodes_list):
-	#idientify the nodes which appear both in eligible seed nodes list and the deepwalk common nodes list.	
-	for node in eligible_seed_nodes_list:
-		if node in deepwalk_common_nodes_list:
-			seed_nodes_list.append(node)
+		source_matched_neighbor_nodes_count = len(source_matched_neighbor_nodes_list)
+		source_neighbor_degree_list = list(small_G.degree(source_neighbor_nodes_list).values())
+		#construct the feature oif the source node with the three arguments: the degree,the number of the matched neighbors and the number of the uniformity of the edges
+		source_node_feature = [source_node_degree,source_matched_neighbor_nodes_count,edges_uniformity_count]
+		triangles_count = obtain_triangles_count(small_G,source_node)
+		source_node_feature.append(triangles_count)
+		if len(source_neighbor_degree_list) > 0:
+			source_node_feature.append(max(source_neighbor_degree_list))
+			source_node_feature.append(min(source_neighbor_degree_list))
+			source_node_feature.append(float(sum(source_neighbor_degree_list)) / len(source_neighbor_degree_list))
+		else:
+			source_node_feature.append(0)
+			source_node_feature.append(0)
+			source_node_feature.append(0)
+
+		#obtain the feature of the dest node
+		dest_node_degree = long_G.degree(dest_node)
+		dest_matched_neighbor_nodes_list = []
+		dest_edges_uniformity_count = 0
+		for node in dest_neighbor_nodes_list:
+			if node in matched_right_nodes_list:
+				temp_matched_node = reverse_matched_nodes_pairs[node]
+				dest_matched_neighbor_nodes_list.append(node)
+				if temp_matched_node in matched_left_nodes_list and temp_matched_node in source_neighbor_nodes_list:
+					dest_edges_uniformity_count += 1
+		
+		dest_matched_neighbor_nodes_count = len(dest_matched_neighbor_nodes_list)
+		#calculate the degree of the macthed neighbor nodes degree
+		dest_neighbor_degree_list = list(long_G.degree(dest_neighbor_nodes_list).values())
+		#construct the feature oif the dest node with the three arguments: the degree,the number of the matched neighbors and the number of the uniformity of the edges
+		dest_node_feature = [dest_node_degree,dest_matched_neighbor_nodes_count,dest_edges_uniformity_count]
+
+		triangles_count = obtain_triangles_count(long_G,dest_node)
+		dest_node_feature.append(triangles_count)
+		if len(dest_neighbor_degree_list) > 0:
+			dest_node_feature.append(max(dest_neighbor_degree_list))
+			dest_node_feature.append(min(dest_neighbor_degree_list))
+			dest_node_feature.append(float(sum(dest_neighbor_degree_list)) / len(dest_neighbor_degree_list))
+		else:
+			dest_node_feature.append(0)
+			dest_node_feature.append(0)
+			dest_node_feature.append(0)
+	
+		similarity_score = euclidean_distance(source_node_feature,dest_node_feature)
+		eligible_seed_nodes_list.append([source_node,dest_node,similarity_score])
+
+	eligible_seed_nodes_list = sorted(eligible_seed_nodes_list,key=lambda x:x[2])
+	print eligible_seed_nodes_list[:15]
+	predicted_seed_count = int(len(eligible_seed_nodes_list) * 0.2)
+	for item in eligible_seed_nodes_list[:predicted_seed_count]:
+		if item[0] in deepwalk_common_nodes_list:
+			seed_nodes_list.append(item[0])
 	seed_node_number = len(seed_nodes_list)
-	print "number of the eligible nodes: %d" % len(eligible_seed_nodes_list)
+	print "number of the eligible nodes: %d" % predicted_seed_count 
 	print "number of common nodes: %d" % seed_node_number
-	if len(eligible_seed_nodes_list) == 0:
+	if predicted_seed_count == 0:
 		rate = 0
 	else:
-		rate = float(seed_node_number) / len(eligible_seed_nodes_list)
-	return rate,seed_nodes_list,eligible_seed_nodes_list
+		rate = float(seed_node_number) /predicted_seed_count 
+	return rate,seed_nodes_list,eligible_seed_nodes_list[:predicted_seed_count]
 
 
 def main():
@@ -825,7 +865,8 @@ def main():
 		
 		# the dimensions of feature of the nodes obtained by node2vec
 		matched_nummber_nodes,seed_rate,seed_nodes_list = obtain_accuracy_rate_in_matched_cmty(left_graph,left_cmty_list,right_graph,right_cmty_list,matched_index,dimensions) 
-		df.write("dimensions: %.2f\n" % dimensions)
+		df.write("dimensions: %d\n" % dimensions)
+		dimensions += 5
 		seed_nodes_index = 0
 		df.write("deepwalk results[cmty-deepwalk-seed]: ")
 		for item in matched_nummber_nodes:

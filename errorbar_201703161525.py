@@ -8,6 +8,92 @@ import mpl_toolkits.mplot3d
 
 import sys
 
+
+def load_seed_rate(filename):
+	txt = open(filename)
+	ret = txt.readlines()
+	cmty_deepwalk_seed = []
+	cmty_deepwalk_seed_list = []
+	seed_accuracy_rate = []
+	dimensions = []
+	for line in ret:
+		if "dimensions" in line:
+			line = line.split(' ')
+			line[-1] = line[-1][:-1]
+			dimensions.append(float(line[1]))
+			continue
+
+		if "deepwalk results" in line:
+			line = line.split(' ')
+			line[-1] = line[-1][:-1]
+			line.pop(0)
+			line.pop(0)
+			line.pop(-1)
+			for item in line:
+				item = item.split('-')
+				cmty_deepwalk_seed.append([int(item[0]),int(item[1]),int(item[2])])
+			continue
+		if "seed accuracy" in line:
+			line = line.split(' ')
+			line[-1] = line[-1][:-1]
+			line.pop(0)
+			line.pop(0)
+			line.pop(0)
+			line.pop(0)
+			for item in line:
+				seed_accuracy_rate.append(float(item))
+			for index in range(len(seed_accuracy_rate)):
+				cmty_deepwalk_seed[index].append(seed_accuracy_rate[index])
+			cmty_deepwalk_seed_list.append(cmty_deepwalk_seed)
+			cmty_deepwalk_seed = []
+			seed_accuracy_rate = []
+			continue
+
+	return cmty_deepwalk_seed_list,dimensions
+			 
+def draw_seed_rate(cmty_deepwalk_seed_list,dimensions):
+	total_count = len(dimensions)
+	fig, axes = plt.subplots(nrows=2, ncols=total_count)
+	axlist = axes.flatten()
+	flag = True
+	total_width = 0.8
+	n = 3
+	width = total_width/n;
+	for index in range(len(axlist)):
+		ax = axlist[index]
+		if index < total_count:
+			colors = ['red', 'tan', 'lime']
+			x = [[],[],[]]
+			for item in cmty_deepwalk_seed_list[index]:
+				x[0].append(item[0])
+				x[1].append(item[1])
+				x[2].append(item[2])
+			a = np.arange(len(x[0]))
+			a = a - (total_width - width) / 2
+			ax.bar(a,x[0],width=width,color=colors[0], label="cmty")
+			ax.bar(a+ width,x[1],width = width,color=colors[1], label="deepwalk")
+			ax.bar(a+2 * width,x[2],width=width,color=colors[2], label="seed")
+			ax.legend(prop={'size': 10})
+			ax.set_title('Dimensions: %.2f' % dimensions[index])
+			ax.set_ylabel("Cmty-Deepwalk-Seed common nodes number")
+			ax.set_xlabel("Community Index")
+			ax.set_xticks(range(-1,len(x[0])))
+		else:
+			i = index % total_count
+			n_bins = len(cmty_deepwalk_seed_list[i])
+			y = []
+			x = range(0,n_bins)
+			for item in cmty_deepwalk_seed_list[i]:
+				y.append(item[-1])
+			ax.plot(x,y,'o-')
+			ax.set_title('Seed Rate')
+			ax.set_ylabel("Accuracy Rate")
+			ax.set_xlabel("Community Index")
+
+	
+	plt.subplots_adjust(hspace=0.5)
+	plt.show()
+
 def draw_sample_accuracy_rate_errorbar(accuracy_sample_dic):
 	'''
 	draw errorbar
@@ -293,11 +379,13 @@ def draw_edge_runtime(filename):
 
 def main():
 	
+	seed_list,dim = load_seed_rate(sys.argv[1])
+	draw_seed_rate(seed_list,dim)
 	#draw_dimensions_accuracy_errorbar(sys.argv[1])
-	accuracy_sample_dic = {}
-	for i in range(1,len(sys.argv)):
-		draw_sample_accuracy_rate(sys.argv[i],accuracy_sample_dic)
-	draw_sample_accuracy_rate_errorbar(accuracy_sample_dic)
+	#accuracy_sample_dic = {}
+	#for i in range(1,len(sys.argv)):
+	#	draw_sample_accuracy_rate(sys.argv[i],accuracy_sample_dic)
+	#draw_sample_accuracy_rate_errorbar(accuracy_sample_dic)
 	#draw_edge_runtime(sys.argv[1])
 
 
