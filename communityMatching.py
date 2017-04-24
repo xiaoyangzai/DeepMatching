@@ -683,8 +683,7 @@ def obtain_accuracy_rate_in_matched_cmty(left_graph,left_cmty_list,right_graph,r
 				continue
 			
 			#record the nodes pairs which is same one node as judeged by algorm
-			if best_score >= 1.0:
-				matched_nodes_pairs[small_node[i]] = long_node[C_index]
+			matched_nodes_pairs[small_node[i]] = long_node[C_index]
 
 			if small_node[i] == long_node[C_index]:
 				count += 1
@@ -726,33 +725,34 @@ def obtain_seed_accuracy_rate(small_G,long_G,matched_nodes_pairs,deepwalk_common
 	matched_right_nodes_list = [matched_nodes_pairs[key] for key in matched_nodes_pairs.keys()]
 	while len(untreated_nodes_list) > 0:
 		source_node = untreated_nodes_list.pop(0)
-
-		dest_node = matched_nodes_pairs[source_node]
 		#obtain the neighbor nodes which have matched before
 
-		source_neighbor_nodes_list =[node for node in small_G.neighbors(source_node) if node in  matched_left_nodes_list]
-		dest_neighbour_nodes_list = [node for node in long_G.neighbors(dest_node) if node in matched_right_nodes_list]
+		source_neighbor_nodes_list = small_G.neighbors(source_node)
 
-		common_matched_neighbor_count = 0
+		eligible_nodes_list =[] 
+		for node in source_neighbor_nodes_list:
+			if node in matched_left_nodes_list:
+				eligible_nodes_list.append(node)
+		length = len(source_neighbor_nodes_list) * 0.5
+		if len(eligible_nodes_list) < length:
+			continue
+		dest_node = matched_nodes_pairs[source_node]
+		dest_neighbor_nodes_list = long_G.neighbors(dest_node)
+		eligible_edges_count = 0
+		for node in eligible_nodes_list:
+			matched_node = matched_nodes_pairs[node]
+			if matched_node in dest_neighbor_nodes_list:
+				eligible_edges_count += 1
+		print "eligible nodes: %d\teligible edges: %d\tneighbor nodes: %d" % (len(eligible_nodes_list),eligible_edges_count,len(source_neighbor_nodes_list))
+		if eligible_edges_count >= len(eligible_nodes_list) * 0.75:
+			eligible_seed_nodes_list.append(source_node)			
 
-		#whether long_neighbor_nodes_list includes the small_neighbor_nodes_list
-		while len(source_neighbor_nodes_list) > 0:
-			node = source_neighbor_nodes_list.pop(0)
-			temp = matched_nodes_pairs[node]
-			if temp not in dest_neighbour_nodes_list:
-				break
-			common_matched_neighbor_count += 1
-
-		small_neighbor_nodes_count = len(source_neighbor_nodes_list) if len(source_neighbor_nodes_list) <= len(dest_neighbour_nodes_list) else len(dest_neighbour_nodes_list)
+		#small_neighbor_nodes_count = len(source_neighbor_nodes_list) if len(source_neighbor_nodes_list) <= len(dest_neighbour_nodes_list) else len(dest_neighbour_nodes_list)
 		#print "neighbor nodes matched count: %d" % common_matched_neighbor_count
 		#print "small neighbor nodes count: %d" % small_neighbor_nodes_count
 
 		#if common_matched_neighbor_count >= small_neighbor_nodes_count:
 		#if common_matched_neighbor_count >= len(source_neighbor_nodes_list):
-		if len(source_neighbor_nodes_list) > 0:
-			continue
-		if common_matched_neighbor_count >= len(dest_neighbour_nodes_list):
-			eligible_seed_nodes_list.append(source_node)			
 	#idientify the nodes which appear both in eligible seed nodes list and the deepwalk common nodes list.	
 	for node in eligible_seed_nodes_list:
 		if node in deepwalk_common_nodes_list:
