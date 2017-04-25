@@ -1,5 +1,6 @@
 #!/usr/bin/python
 import numpy as np
+import community as cmty
 import os
 import time as ti
 import networkx as nx
@@ -89,10 +90,28 @@ def community_detect_graph(G1,G2,detect_method = None):
 		running_time = time.time() - start_time
 		print "sample finished,running time :%d mins %d secs" % (int(running_time / 60),int(running_time % 60))
 		return SG1,SG2,SG1_ret_list,SG2_ret_list
+	if detect_method == cmty.best_partition:
+		s1_partition = cmty.best_partition(G1)
+		s2_partition = cmty.best_partition(G2)
+		SG1_ret_list = []
+		SG2_ret_list = []
+		for com in set(s1_partition.values()):
+			temp = [nodes for nodes in s1_partition.keys() if s1_partition[nodes] == com]
+			SG1_ret_list.append(temp)
+		for com in set(s2_partition.values()):
+			temp = [nodes for nodes in s2_partition.keys() if s2_partition[nodes] == com]
+			SG2_ret_list.append(temp)
+		running_time = time.time() - start_time
+		print "SG1 community size: %d \t SG2 community size :%d " % (len(SG1_ret_list),len(SG2_ret_list))
+		print "sample finished,running time :%d mins %d secs" % (int(running_time / 60),int(running_time % 60))
+		SG1 = transform_networkx_to_snap(G1)
+		SG2 = transform_networkx_to_snap(G2)
+		return SG1,SG2,SG1_ret_list,SG2_ret_list
+
+
 	if detect_method == cnm.community_cnm:
 		SG1 = transform_networkx_to_snap(G1)
 		SG2 = transform_networkx_to_snap(G2)
-
 	else:
 		SG1 = G1
 		SG2 = G2
@@ -365,7 +384,6 @@ def obtain_feature_of_cmty(G,SG,nodes_list,throd):
 	#4.calculate betweenness centrality 
 	between_centrality_list = obtain_between_centrality(G,edges)
 	midian_bs = obtain_midian_list(between_centrality_list)
-	between_centrality_list = sorted(between_centrality_list,reverse=True)
 
 	#max bs 
 	for i in range(int(throd * 0.75)):
@@ -521,7 +539,7 @@ def calculate_common_nodes_between_cmties(s_nodes_list,d_nodes_list):
 	print "small length: %d" % len(small_node_list)
 	return float(common_count)/total_count,common_nodes_list
 
-def repeated_eavalute_accuracy_by_feature(G1,G2,throd_value = 0.75,limit_cmty_nodes = 10,method = euclidean_metric,detect_method = cnm.community_cnm):
+def repeated_eavalute_accuracy_by_feature(G1,G2,throd_value = 0.75,limit_cmty_nodes = 10,method = euclidean_metric,detect_method = cmty.best_partition):
 	#print "sample rate: %.4f" % sample_rate
 	#print "limit cmty nodes: %d" % limit_cmty_nodes
 
@@ -639,6 +657,7 @@ def obtain_accuracy_rate_in_matched_cmty(left_graph,left_cmty_list,right_graph,r
 		left_index = item[0]
 		right_index = item[1]
 		common_nodes = item[2]
+		original_size = len(left_cmty_list[left_index]) if len(left_cmty_list[left_index]) <= len(right_cmty_list[right_index]) else len(right_cmty_list[right_index])
 
 		print "%i -> %i common nodes: %d" % (left_index,right_index,common_nodes)
 		if common_nodes == 0:
@@ -688,11 +707,11 @@ def obtain_accuracy_rate_in_matched_cmty(left_graph,left_cmty_list,right_graph,r
 			#record the nodes pairs which is same one node as judeged by algorm
 			if best_score >= 1.0:
 				matched_nodes_pairs[small_node[i]] = long_node[C_index]
-
-			if small_node[i] == long_node[C_index]:
-				count += 1
-				deepwalk_common_nodes_list.append(small_node[i])
-		matched_nodes_number.append([common_nodes,count])
+				if small_node[i] == long_node[C_index]:
+					count += 1
+					deepwalk_common_nodes_list.append(small_node[i])
+		deepwalk_matched_nodes_size = len(matched_nodes_pairs)
+		#matched_nodes_number.append([original_size,common_nodes,deepwalk_matched_nodes_size,count])
 		print "matched nodes count: %d" % count
 
 		
@@ -700,9 +719,11 @@ def obtain_accuracy_rate_in_matched_cmty(left_graph,left_cmty_list,right_graph,r
 		if count == 0:
 			seed_nodes_list.append([])
 			seed_rate.append(0)
+			matched_nodes_number.append([original_size,common_nodes,deepwalk_matched_nodes_size,count,0,0])
 			print "identification of seed rate...OK"
 			continue
 		temp_seed_rate,seed_nodes,eligible_seed_nodes_list = obtain_seed_accuracy_rate(small_G,long_G,matched_nodes_pairs,deepwalk_common_nodes_list)
+		matched_nodes_number.append([original_size,common_nodes,deepwalk_matched_nodes_size,count,len(eligible_seed_nodes_list),len(seed_nodes)])
 		seed_nodes_list.append(seed_nodes)
 		print "seed rate: %.5f" % temp_seed_rate
 		print "identification of seed rate...OK"
@@ -793,7 +814,7 @@ def obtain_seed_accuracy_rate(small_G,long_G,matched_nodes_pairs,deepwalk_common
 
 	eligible_seed_nodes_list = sorted(eligible_seed_nodes_list,key=lambda x:x[2])
 	print eligible_seed_nodes_list[:15]
-	predicted_seed_count = int(len(eligible_seed_nodes_list) * 0.2)
+	predicted_seed_count = int(len(eligible_seed_nodes_list) * 0.15)
 	for item in eligible_seed_nodes_list[:predicted_seed_count]:
 		if item[0] in deepwalk_common_nodes_list:
 			seed_nodes_list.append(item[0])
@@ -841,13 +862,14 @@ def main():
 	print "begin to map community....."	
 	sum_acc = 0.0
 	rate_list = []
-	dimensions = 90 
+	dimensions = 100 
 	for i in range(repeated_count):
 		print "->%d"%i ,
 		sys.stdout.flush()
 		G1,G2 = bi_sample_graph(nx_G,sample_rate)
 
 		old_rate,left_graph,right_graph,left_cmty_list,right_cmty_list,matched_index = repeated_eavalute_accuracy_by_feature(G1,G2,limit_cmty_nodes = throd_value)
+		#record the small commnuity size
 		df.write("%ith loop:\n"%i)
 		df.write("G1 cmty length distribution: ")
 		for index in left_cmty_list:
@@ -866,14 +888,10 @@ def main():
 		# the dimensions of feature of the nodes obtained by node2vec
 		matched_nummber_nodes,seed_rate,seed_nodes_list = obtain_accuracy_rate_in_matched_cmty(left_graph,left_cmty_list,right_graph,right_cmty_list,matched_index,dimensions) 
 		df.write("dimensions: %d\n" % dimensions)
-		dimensions += 5
-		seed_nodes_index = 0
+		dimensions += 10
 		df.write("deepwalk results[cmty-deepwalk-seed]: ")
 		for item in matched_nummber_nodes:
-			common_nodes = item[0]
-			deepwalk_map_nodes = item[1]
-			df.write("%d-%d-%d " % (common_nodes,deepwalk_map_nodes,len(seed_nodes_list[seed_nodes_index])))
-			seed_nodes_index += 1
+			df.write("%d-%d-%d-%d-%d-%d " % (item[0],item[1],item[2],item[3],item[4],item[5]))
 			df.flush()
 		df.write('\n')
 		df.flush()
