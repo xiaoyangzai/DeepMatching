@@ -16,6 +16,10 @@ def load_seed_rate(filename):
 	cmty_deepwalk_seed_list = []
 	seed_accuracy_rate = []
 	dimensions = []
+	sample = 0.0
+	cmty_size_upper_limit = 0
+	dataset_info = ""
+
 
 	index = 0
 	for line in ret:
@@ -23,6 +27,19 @@ def load_seed_rate(filename):
 			break
 		index += 1
 	for line in ret[index:]:
+		if "sample" in line:
+			line = line.split(' ')
+			sample = float(line[-1][:-1])
+			continue
+		if "throd" in line:
+			line = line.split(' ')
+			cmty_size_upper_limit = int(line[-1][:-1])
+			continue
+			
+		if "Graph Infomation:" in line:
+			line = line.split(':')
+			dataset_info = line[-1][:-1]
+			continue
 		if "dimensions" in line:
 			line = line.split(' ')
 			line[-1] = line[-1][:-1]
@@ -55,9 +72,10 @@ def load_seed_rate(filename):
 			seed_accuracy_rate = []
 			continue
 	print "load finished....ok"
-	return cmty_deepwalk_seed_list,dimensions
+	return cmty_deepwalk_seed_list,dimensions,dataset_info,sample,cmty_size_upper_limit
 			 
-def draw_seed_rate(cmty_deepwalk_seed_list,dimensions):
+def draw_seed_rate(cmty_deepwalk_seed_list,dimensions,dataset_info,sample,cmty_size_upper_limit
+):
 	total_count = len(dimensions)
 	fig, axes = plt.subplots(nrows=4, ncols=total_count)
 	axlist = axes.flatten()
@@ -80,15 +98,15 @@ def draw_seed_rate(cmty_deepwalk_seed_list,dimensions):
 		a = np.arange(len(x[0]))
 		a = a - (total_width - width) / 2
 
-		ax0.bar(a,x[0],width=width,color=colors[0], label="size before cmty identify")
-		ax0.bar(a+ width,x[1],width = width,color=colors[1], label="size after cmty identify")
+		ax0.bar(a,x[0],width=width,color=colors[0], label="size before community identify")
+		ax0.bar(a+ width,x[1],width = width,color=colors[1], label="size after community identify")
 		ax0.bar(a+2 * width + 0.02,x[2],width=width,color=colors[2], label="size before deepwalk identify")
 		ax0.bar(a+3 * width + 0.02,x[3],width=width,color=colors[3], label="size after deepwalk identify")
 		ax0.bar(a+4 * width + 0.04,x[4],width=width,color=colors[4], label="size before edge identify")
 		ax0.bar(a+5 * width + 0.04,x[5],width=width,color=colors[5], label="size after edge identify")
 		ax0.legend(prop={'size': 6})
 		ax0.set_title('Dimensions: %.2f' % dimensions[index])
-		ax0.set_ylabel("Cmty-Deepwalk-Seed common nodes number")
+		ax0.set_ylabel("Common Nodes Number")
 		ax0.set_xlabel("Community Index")
 		ax0.set_xticks(range(-1,len(x[0])))
 		ax0.set_yticks(range(0,800,100))
@@ -134,47 +152,9 @@ def draw_seed_rate(cmty_deepwalk_seed_list,dimensions):
 		ax3.plot(temp_x_3,rate_3,'go-')
 		ax3.set_title('Edges Detection')
 		ax3.set_ylabel("Accuracy Rate")
-		ax3.set_xlabel("Community Index")
-	#for index in range(len(axlist)):
-	#	ax = axlist[index]
-	#	if index < total_count:
-	#		colors = ['black','gray','red','tomato', 'limegreen', 'lime']
-	#		x = [[],[],[],[],[],[]]
-	#		for item in cmty_deepwalk_seed_list[index]:
-	#			x[0].append(item[0])
-	#			x[1].append(item[1])
-	#			x[2].append(item[2])
-	#			x[3].append(item[3])
-	#			x[4].append(item[4])
-	#			x[5].append(item[5])
-	#		a = np.arange(len(x[0]))
-	#		a = a - (total_width - width) / 2
-	#		ax.bar(a,x[0],width=width,color=colors[0], label="size before cmty identify")
-	#		ax.bar(a+ width,x[1],width = width,color=colors[1], label="size after cmty identify")
-	#		ax.bar(a+2 * width + 0.02,x[2],width=width,color=colors[2], label="size before deepwalk identify")
-	#		ax.bar(a+3 * width + 0.02,x[3],width=width,color=colors[3], label="size after deepwalk identify")
-	#		ax.bar(a+4 * width + 0.04,x[4],width=width,color=colors[4], label="size before edge identify")
-	#		ax.bar(a+5 * width + 0.04,x[5],width=width,color=colors[5], label="size after edge identify")
-	#		ax.legend(prop={'size': 6})
-	#		ax.set_title('Dimensions: %.2f' % dimensions[index])
-	#		ax.set_ylabel("Cmty-Deepwalk-Seed common nodes number")
-	#		ax.set_xlabel("Community Index")
-	#		ax.set_xticks(range(-1,len(x[0])))
-	#		ax.set_yticks(range(0,800,100))
-	#	else:
-	#		i = index % total_count
-	#		n_bins = len(cmty_deepwalk_seed_list[i])
-	#		y = []
-	#		x = range(0,n_bins)
-	#		for item in cmty_deepwalk_seed_list[i]:
-	#			y.append(item[-1])
-	#		ax.plot(x,y,'o-')
-	#		ax.set_title('Seed Rate')
-	#		ax.set_ylabel("Accuracy Rate")
-	#		ax.set_xlabel("Community Index")
-
-	#
-	plt.subplots_adjust(hspace=0.5)
+	fig.suptitle("Using Community Detection, Deepwalk And Node-feature To Look For Seed\ncommunity detection method: %s\nsample: %.2f\nGraph Information: %s" % ("best_partition",sample,dataset_info))
+	fig.subplots_adjust(hspace=0.25)
+	plt.subplots_adjust(hspace=0.4)
 	plt.show()
 
 def draw_sample_accuracy_rate_errorbar(accuracy_sample_dic):
@@ -462,8 +442,8 @@ def draw_edge_runtime(filename):
 
 def main():
 	
-	seed_list,dim = load_seed_rate(sys.argv[1])
-	draw_seed_rate(seed_list,dim)
+	seed_list,dim,dataset_info,sample,cmty_size_upper_limit = load_seed_rate(sys.argv[1])
+	draw_seed_rate(seed_list,dim,dataset_info,sample,cmty_size_upper_limit)
 	#draw_dimensions_accuracy_errorbar(sys.argv[1])
 	#accuracy_sample_dic = {}
 	#for i in range(1,len(sys.argv)):

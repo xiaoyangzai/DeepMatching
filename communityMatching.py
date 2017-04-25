@@ -856,7 +856,7 @@ def main():
 	#load graph form file
 	nx_G = load_graph_from_file(sys.argv[1],delimiter = ' ')
 
-	df.write("Graph Infomation: nodes %d\tedges %d\n" % (len(nx_G.nodes()),len(nx_G.edges())))
+	df.write("Graph Infomation: nodes %d edges %d\n" % (len(nx_G.nodes()),len(nx_G.edges())))
 	df.flush()
 
 	print "begin to map community....."	
