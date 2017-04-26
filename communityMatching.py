@@ -722,16 +722,97 @@ def obtain_accuracy_rate_in_matched_cmty(left_graph,left_cmty_list,right_graph,r
 			matched_nodes_number.append([original_size,common_nodes,deepwalk_matched_nodes_size,count,0,0])
 			print "identification of seed rate...OK"
 			continue
-		temp_seed_rate,seed_nodes,eligible_seed_nodes_list = obtain_seed_accuracy_rate(small_G,long_G,matched_nodes_pairs,deepwalk_common_nodes_list)
-		matched_nodes_number.append([original_size,common_nodes,deepwalk_matched_nodes_size,count,len(eligible_seed_nodes_list),len(seed_nodes)])
-		seed_nodes_list.append(seed_nodes)
-		print "seed rate: %.5f" % temp_seed_rate
-		print "identification of seed rate...OK"
-		seed_rate.append(temp_seed_rate)
+
+		
+		temp_list,temp_count,temp_rate = obtain_optimal_edges_consistency(small_G,long_G,matched_nodes_pairs,deepwalk_common_nodes_list)
+		seed_rate.append(temp_rate)
+		seed_nodes_list.append(temp_list)
+		matched_nodes_number.append([original_size,common_nodes,deepwalk_matched_nodes_size,count,len(temp_list),temp_count])
+		
+		#temp_seed_rate,seed_nodes,eligible_seed_nodes_list = obtain_seed_accuracy_rate_with_node_feature(small_G,long_G,matched_nodes_pairs,deepwalk_common_nodes_list)
+		#matched_nodes_number.append([original_size,common_nodes,deepwalk_matched_nodes_size,count,len(eligible_seed_nodes_list),len(seed_nodes)])
+		#seed_nodes_list.append(seed_nodes)
+		#print "seed rate: %.5f" % temp_seed_rate
+		#print "identification of seed rate...OK"
+		#seed_rate.append(temp_seed_rate)
+		##if len(deepwalk_common_nodes_list) < 30:
+		##	draw_subgraph_after_deepwalk(small_G,long_G,matched_nodes_pairs,deepwalk_common_nodes_list)
 	print "map prob maxtrix....OK"
 	return matched_nodes_number,seed_rate,seed_nodes_list
 
-def obtain_seed_accuracy_rate(small_G,long_G,matched_nodes_pairs,deepwalk_common_nodes_list):
+def obtain_optimal_edges_consistency(small_G,long_G,matched_nodes_pairs,deepwalk_common_nodes_list):
+	
+	#initialize the list consisted of the matched nodes
+	source_matched_nodes = [node for node in matched_nodes_pairs]	
+
+	subsmall_G = small_G.subgraph(source_matched_nodes)
+	subsmall_nodes_degree = subsmall_G.degree()
+	degree_list = [subsmall_nodes_degree[key] for key in subsmall_nodes_degree]
+	source_size = len(source_matched_nodes)
+	limit_size = obtain_midian_list(degree_list) * 0.5
+	print "limit of the degree: %.2f" % limit_size 
+	dest_matched_nodes = [matched_nodes_pairs[node] for node in matched_nodes_pairs]
+	
+	sublong_G = long_G.subgraph(dest_matched_nodes)
+	while True:
+		subsmall_G = small_G.subgraph(source_matched_nodes)
+		new_source_matched = []
+		#obtain the degree list of the nodes in the subgraph
+		subsmall_nodes_degree = subsmall_G.degree()
+		subsmall_nodes_degree = sorted(subsmall_nodes_degree.items(),key=lambda x:x[1],reverse=True)
+		for node in subsmall_nodes_degree:
+			node = node[0]
+			count = 0
+			dest_node = matched_nodes_pairs[node]
+			dest_node_neighbors = sublong_G.neighbors(dest_node)
+			node_neighbors = subsmall_G.neighbors(node)
+			for n_node in node_neighbors:
+				matched_node = matched_nodes_pairs[n_node] 
+				if matched_node in dest_node_neighbors:
+					count += 1
+					#if n_node not in new_source_matched:
+					#	new_source_matched.append(n_node)
+					#if node not in new_source_matched:
+					#	new_source_matched.append(node)
+			temp_throd = len(node_neighbors) * 0.8
+			if count >= temp_throd and node not in new_source_matched:
+				new_source_matched.append(node)
+
+
+		if len(new_source_matched) == len(source_matched_nodes):
+			break
+		source_matched_nodes = new_source_matched
+
+	print "seed list total len: %d" % len(new_source_matched)
+	count = 0
+	if len(new_source_matched) == 0:
+		print "real seed: %d" % count
+		print "seed rate: 0" 
+		return new_source_matched,0,0
+	for node in new_source_matched:
+		if node in deepwalk_common_nodes_list:
+			count += 1
+	rate = float(count)/len(new_source_matched)
+	print "real seed: %d" % count
+	print "seed accuracy rate: %.2f" % rate
+	return new_source_matched,count,rate
+			
+def draw_subgraph_after_deepwalk(small_G,long_G,matched_nodes_pairs,deepwalk_common_nodes_list):
+	partitions = []	
+	partitions.append([node for node in matched_nodes_pairs if node not in deepwalk_common_nodes_list])
+	partitions.append([matched_nodes_pairs[node] for node in matched_nodes_pairs if matched_nodes_pairs[node] not in deepwalk_common_nodes_list])
+	sub_nodes_list = partitions[0] + partitions[1]
+	subgraph_small = small_G.subgraph(sub_nodes_list)
+	draw_partitions(subgraph_small,partitions)
+	partitions_matched = []
+	partitions_matched.append([node for node in matched_nodes_pairs if node not in deepwalk_common_nodes_list])
+	partitions_matched.append([matched_nodes_pairs[node] for node in matched_nodes_pairs if matched_nodes_pairs[node] not in deepwalk_common_nodes_list])
+	sub_nodes_list_matched = partitions_matched[0] + partitions_matched[1]
+	subgraph_big = long_G.subgraph(sub_nodes_list_matched)
+	draw_partitions(subgraph_big,partitions_matched)
+	return
+
+def obtain_seed_accuracy_rate_with_node_feature(small_G,long_G,matched_nodes_pairs,deepwalk_common_nodes_list):
 	'''
 	obtain zhe seed nodes and the fraction of the number of the nodes in the list specified by argument @deepwalk_common_nodes_list 
 	return the seed nodes array and the accuracy rate between number of the nodes which locate at both   seed nodes array and deepwalk_common_list and the number of the deepwalk_common_nodes_list
