@@ -20,7 +20,7 @@ def nodes_embedding_deepwalk(G, p=1, q=1, dimensions=128):
     # Extract the features for each node using deepwalk
 	print "start transport the graph to deepwalk,edges: %d\tnodes: %d" % (G.number_of_edges(),G.order())
 
-	model = deepwalk.process(G.edges(), dimensions=dimensions, number_walks = 30)
+	model = deepwalk.process(G.edges(), dimensions=dimensions, number_walks = 20)
 	nodes = [word for word, vcab in model.vocab.iteritems()]
 	inds = [vcab.index for word, vcab in model.vocab.iteritems()]
 	X = model.syn0[inds]

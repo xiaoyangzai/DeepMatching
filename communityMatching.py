@@ -749,14 +749,16 @@ def obtain_optimal_edges_consistency(small_G,long_G,matched_nodes_pairs,deepwalk
 	subsmall_nodes_degree = subsmall_G.degree()
 	degree_list = [subsmall_nodes_degree[key] for key in subsmall_nodes_degree]
 	source_size = len(source_matched_nodes)
-	limit_size = obtain_midian_list(degree_list) * 0.5
+	limit_size = obtain_midian_list(degree_list)
 	print "limit of the degree: %.2f" % limit_size 
+	average_value = float(sum(degree_list)) / len(degree_list)
 	dest_matched_nodes = [matched_nodes_pairs[node] for node in matched_nodes_pairs]
 	
 	sublong_G = long_G.subgraph(dest_matched_nodes)
+	subsmall_G = small_G.subgraph(source_matched_nodes)
+	front_nodes = subsmall_G.number_of_nodes()
+	front_edges = subsmall_G.number_of_edges()
 	while True:
-		subsmall_G = small_G.subgraph(source_matched_nodes)
-		new_source_matched = []
 		#obtain the degree list of the nodes in the subgraph
 		subsmall_nodes_degree = subsmall_G.degree()
 		subsmall_nodes_degree = sorted(subsmall_nodes_degree.items(),key=lambda x:x[1],reverse=True)
@@ -766,33 +768,38 @@ def obtain_optimal_edges_consistency(small_G,long_G,matched_nodes_pairs,deepwalk
 			dest_node = matched_nodes_pairs[node]
 			dest_node_neighbors = sublong_G.neighbors(dest_node)
 			node_neighbors = subsmall_G.neighbors(node)
+			if len(node_neighbors) == 0:
+				subsmall_G.remove_node(node)
+				continue
 			for n_node in node_neighbors:
 				matched_node = matched_nodes_pairs[n_node] 
-				if matched_node in dest_node_neighbors:
+				if matched_node  in dest_node_neighbors:
 					count += 1
+			if count < (len(node_neighbors)):
+				subsmall_G.remove_node(node)
+
 					#if n_node not in new_source_matched:
 					#	new_source_matched.append(n_node)
 					#if node not in new_source_matched:
 					#	new_source_matched.append(node)
-			temp_throd = len(node_neighbors) * 0.8
-			if count >= temp_throd and node not in new_source_matched:
-				new_source_matched.append(node)
 
-
-		if len(new_source_matched) == len(source_matched_nodes):
-			break
-		source_matched_nodes = new_source_matched
-
-	print "seed list total len: %d" % len(new_source_matched)
+		if front_edges == subsmall_G.number_of_edges() and front_nodes == subsmall_G.number_of_nodes():
+			break 
+		else:
+			front_nodes = subsmall_G.number_of_nodes()
+			front_edges = subsmall_G.number_of_edges()
+	
+	print "seed list total len: %d" % front_nodes 
 	count = 0
-	if len(new_source_matched) == 0:
+	new_source_matched = subsmall_G.nodes()
+	if front_nodes == 0:
 		print "real seed: %d" % count
 		print "seed rate: 0" 
 		return new_source_matched,0,0
 	for node in new_source_matched:
 		if node in deepwalk_common_nodes_list:
 			count += 1
-	rate = float(count)/len(new_source_matched)
+	rate = float(count)/front_nodes
 	print "real seed: %d" % count
 	print "seed accuracy rate: %.2f" % rate
 	return new_source_matched,count,rate
@@ -943,7 +950,7 @@ def main():
 	print "begin to map community....."	
 	sum_acc = 0.0
 	rate_list = []
-	dimensions = 100 
+	dimensions = 95 
 	for i in range(repeated_count):
 		print "->%d"%i ,
 		sys.stdout.flush()
@@ -969,7 +976,6 @@ def main():
 		# the dimensions of feature of the nodes obtained by node2vec
 		matched_nummber_nodes,seed_rate,seed_nodes_list = obtain_accuracy_rate_in_matched_cmty(left_graph,left_cmty_list,right_graph,right_cmty_list,matched_index,dimensions) 
 		df.write("dimensions: %d\n" % dimensions)
-		dimensions += 10
 		df.write("deepwalk results[cmty-deepwalk-seed]: ")
 		for item in matched_nummber_nodes:
 			df.write("%d-%d-%d-%d-%d-%d " % (item[0],item[1],item[2],item[3],item[4],item[5]))
