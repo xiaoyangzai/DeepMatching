@@ -19,14 +19,19 @@ def load_seed_rate(filename):
 	sample = 0.0
 	cmty_size_upper_limit = 0
 	dataset_info = ""
+	remarks = ''
 
 
 	index = 0
-	for line in ret:
-		if "best_partition" in line:
-			break
-		index += 1
+	#for line in ret:
+	#	if "best_partition" in line:
+	#		break
+	#	index += 1
 	for line in ret[index:]:
+		if "remarks" in line:
+			line = line.split(' ')
+			remarks = str(line[-1][:-1])
+			continue
 		if "sample" in line:
 			line = line.split(' ')
 			sample = float(line[-1][:-1])
@@ -72,9 +77,9 @@ def load_seed_rate(filename):
 			seed_accuracy_rate = []
 			continue
 	print "load finished....ok"
-	return cmty_deepwalk_seed_list,dimensions,dataset_info,sample,cmty_size_upper_limit
+	return cmty_deepwalk_seed_list,dimensions,dataset_info,sample,cmty_size_upper_limit,remarks
 			 
-def draw_seed_rate(cmty_deepwalk_seed_list,dimensions,dataset_info,sample,cmty_size_upper_limit
+def draw_seed_rate(cmty_deepwalk_seed_list,dimensions,dataset_info,sample,cmty_size_upper_limit,remarks
 ):
 	total_count = len(dimensions)
 	fig, axes = plt.subplots(nrows=4, ncols=total_count)
@@ -152,7 +157,7 @@ def draw_seed_rate(cmty_deepwalk_seed_list,dimensions,dataset_info,sample,cmty_s
 		ax3.plot(temp_x_3,rate_3,'go-')
 		ax3.set_title('Edges Detection')
 		ax3.set_ylabel("Accuracy Rate")
-	fig.suptitle("Using Community Detection, Deepwalk And Node-feature To Look For Seed\ncommunity detection method: %s\nsample: %.2f\nGraph Information: %s" % ("best_partition",sample,dataset_info))
+	fig.suptitle("community detection method: %s\nsample: %.2f\nGraph Information: %s\n Remarks: %s" % ("best_partition",sample,dataset_info,remarks))
 	fig.subplots_adjust(hspace=0.25)
 	plt.subplots_adjust(hspace=0.4)
 	plt.show()
@@ -442,8 +447,8 @@ def draw_edge_runtime(filename):
 
 def main():
 	
-	seed_list,dim,dataset_info,sample,cmty_size_upper_limit = load_seed_rate(sys.argv[1])
-	draw_seed_rate(seed_list,dim,dataset_info,sample,cmty_size_upper_limit)
+	seed_list,dim,dataset_info,sample,cmty_size_upper_limit,remarks = load_seed_rate(sys.argv[1])
+	draw_seed_rate(seed_list,dim,dataset_info,sample,cmty_size_upper_limit,remarks)
 	#draw_dimensions_accuracy_errorbar(sys.argv[1])
 	#accuracy_sample_dic = {}
 	#for i in range(1,len(sys.argv)):

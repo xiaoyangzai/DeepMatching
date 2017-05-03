@@ -768,14 +768,17 @@ def obtain_optimal_edges_consistency(small_G,long_G,matched_nodes_pairs,deepwalk
 			dest_node = matched_nodes_pairs[node]
 			dest_node_neighbors = sublong_G.neighbors(dest_node)
 			node_neighbors = subsmall_G.neighbors(node)
-			if len(node_neighbors) == 0:
+			len_node_neighbors = len(node_neighbors)
+			if len_node_neighbors == 0:
 				subsmall_G.remove_node(node)
 				continue
 			for n_node in node_neighbors:
 				matched_node = matched_nodes_pairs[n_node] 
 				if matched_node  in dest_node_neighbors:
 					count += 1
-			if count < (len(node_neighbors)):
+			if count == len_node_neighbors:# and count > limit_size*0.5:
+				continue
+			else:
 				subsmall_G.remove_node(node)
 
 					#if n_node not in new_source_matched:
@@ -930,7 +933,7 @@ def main():
 
 	filename = "cmty_matching_with_sample_%.2f_repeat_%d_cmty_throd_%d.txt"%(float(sys.argv[2]),repeated_count,throd_value)
 	print "result will be recorded in %s"%filename
-	df = open(filename,"a")
+	df = open(filename,"w")
 	df.write("########################################################################\n")
 	df.write("date: %s\n" % ti.strftime("%Y-%m-%d %H:%M:%S",ti.localtime(ti.time())))
 	df.write("remarks: %s\n" % sys.argv[6])
@@ -950,7 +953,7 @@ def main():
 	print "begin to map community....."	
 	sum_acc = 0.0
 	rate_list = []
-	dimensions = 95 
+	dimensions = 120 
 	for i in range(repeated_count):
 		print "->%d"%i ,
 		sys.stdout.flush()
