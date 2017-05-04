@@ -649,6 +649,15 @@ def calculate_accuracy_rate_by_feature(SG1,SG1_new_cmty,SG2,SG2_new_cmty,score_l
 	return accuracy_rate,big_G,small_G,big_new_cmty,small_new_cmty,matched_index
 
 def obtain_accuracy_rate_in_matched_cmty(left_graph,left_cmty_list,right_graph,right_cmty_list,matched_cmty_index_pairs,dimensions=65):
+	'''
+	the @left_cmty_list obtained by the best_partition to @left_graph consists of nodes of the communities
+	matched_cmty_index_pairs contains the pairs of index of the communities from the @left_cmty_list and @right_cmty_list and the number of the nodes in both communities,just like [[1,2,300],...] which means the 1th community of the @left_graph matched with the 2th of the @right_graph. they have 300 nodes in both 1th and 2th communities
+	the dimensions of the deepwalk is specified by @dimensions 
+	Return:
+		@matched_nodes_number: list, contains the number of total nodes in the  matched communities and the number of same nodes bewteen matched communities, and the number of total nodes obtained by deepwalk and the number of the same nodes, and the number of the total seed nodes obtained by edge_consistency_method and the number of the real seed nodes
+		@seed_rate: list,the ratio of the number of real seed nodes to the number of the total seed nodes of the each matched communities
+		@seed_nodes_list: list, consisted of the total seed nodes index of each matched communities obtained by edge_consistency_method
+	'''
 	matched_nodes_number = []
 	seed_rate = []
 	seed_nodes_list = []
@@ -704,15 +713,19 @@ def obtain_accuracy_rate_in_matched_cmty(left_graph,left_cmty_list,right_graph,r
 				#not finding the best matched node
 				continue
 			
-			#record the nodes pairs which is same one node as judeged by algorm
+			#record the nodes pairs which is same one node judeged by algorm
 			if best_score >= 1.0:
 				matched_nodes_pairs[small_node[i]] = long_node[C_index]
 				if small_node[i] == long_node[C_index]:
+					#real seed node
 					count += 1
 					deepwalk_common_nodes_list.append(small_node[i])
+
 		deepwalk_matched_nodes_size = len(matched_nodes_pairs)
+
 		#matched_nodes_number.append([original_size,common_nodes,deepwalk_matched_nodes_size,count])
-		print "matched nodes count: %d" % count
+		print "matched nodes count: %d" % deepwalk_matched_nodes_size 
+		print "read seed nodes count: %d" % count 
 
 		
 		print "identification of seed rate....."
@@ -723,23 +736,72 @@ def obtain_accuracy_rate_in_matched_cmty(left_graph,left_cmty_list,right_graph,r
 			print "identification of seed rate...OK"
 			continue
 
-		
-		temp_list,temp_count,temp_rate = obtain_optimal_edges_consistency(small_G,long_G,matched_nodes_pairs,deepwalk_common_nodes_list)
+		# seed nodes detection by using the edge_consisitency method	
+		temp_list,temp_count,temp_rate = obtain_optimal_edges_consistency_throd(small_G,long_G,matched_nodes_pairs,deepwalk_common_nodes_list)
 		seed_rate.append(temp_rate)
 		seed_nodes_list.append(temp_list)
 		matched_nodes_number.append([original_size,common_nodes,deepwalk_matched_nodes_size,count,len(temp_list),temp_count])
 		
-		#temp_seed_rate,seed_nodes,eligible_seed_nodes_list = obtain_seed_accuracy_rate_with_node_feature(small_G,long_G,matched_nodes_pairs,deepwalk_common_nodes_list)
-		#matched_nodes_number.append([original_size,common_nodes,deepwalk_matched_nodes_size,count,len(eligible_seed_nodes_list),len(seed_nodes)])
-		#seed_nodes_list.append(seed_nodes)
-		#print "seed rate: %.5f" % temp_seed_rate
-		#print "identification of seed rate...OK"
-		#seed_rate.append(temp_seed_rate)
-		##if len(deepwalk_common_nodes_list) < 30:
-		##	draw_subgraph_after_deepwalk(small_G,long_G,matched_nodes_pairs,deepwalk_common_nodes_list)
 	print "map prob maxtrix....OK"
 	return matched_nodes_number,seed_rate,seed_nodes_list
 
+def obtain_optimal_edges_consistency_throd(small_G,long_G,matched_nodes_pairs,deepwalk_common_nodes_list):
+	'''
+	obtain the seed nodes list with the threshold 
+	th number of the nodes of the @small_G is less than @long_G
+	the @matched_nodes_pairs consisted of pairs of matched nodes just like [[1,1],[3,4]...] which means node 3 of the small_G is same with node 4 of the long_G
+	the @deepwalk_common_nodes_list consisted of the same nodes that come from the @small_G 
+
+	Return:
+		@eligible_nodes: list, consisted of the all seed nodes index obtained by edge_consistency_method
+		@count: int, the number of the real seed nodes
+		@rate: float, the accuracy of seed nodes detection by using the edge_consistency_method
+	'''
+	source_matched_nodes = [node for node in matched_nodes_pairs]	
+	subsmall_G = small_G.subgraph(source_matched_nodes)
+
+	subsmall_nodes_degree = subsmall_G.degree()
+	degree_list = [subsmall_nodes_degree[key] for key in subsmall_nodes_degree]
+	source_size = len(source_matched_nodes)
+
+	#calculate the threshold vlue
+	midian = obtain_midian_list(degree_list)
+	average = float(sum(degree_list)) / len(degree_list)
+
+	dest_matched_nodes = [matched_nodes_pairs[node] for node in matched_nodes_pairs]
+	sublong_G = long_G.subgraph(dest_matched_nodes)
+
+	eligible_nodes = []
+	while len(source_matched_nodes) > 0:
+		node = source_matched_nodes.pop(0)
+		count = 0
+		dest_node = matched_nodes_pairs[node]
+		dest_node_neighbors = sublong_G.neighbors(dest_node)
+		node_neighbors = subsmall_G.neighbors(node)
+		for n_node in node_neighbors:
+			matched_node = matched_nodes_pairs[n_node] 
+			if matched_node  in dest_node_neighbors:
+				count += 1
+
+		if count >= midian and count > 1:
+			eligible_nodes.append(node)	
+
+	print "seed list total len: %d" % len(eligible_nodes) 
+	count = 0
+	if len(eligible_nodes) == 0:
+		print "real seed: %d" % count
+		print "seed rate: 0" 
+		return eligible_nodes,0,0
+	for node in eligible_nodes:
+		if node in deepwalk_common_nodes_list:
+			#real seed nodes
+			count += 1
+
+	rate = float(count)/len(eligible_nodes)
+	print "real seed: %d" % count
+	print "seed accuracy rate: %.2f" % rate
+	return eligible_nodes,count,rate
+		
 def obtain_optimal_edges_consistency(small_G,long_G,matched_nodes_pairs,deepwalk_common_nodes_list):
 	
 	#initialize the list consisted of the matched nodes
@@ -921,7 +983,7 @@ def obtain_seed_accuracy_rate_with_node_feature(small_G,long_G,matched_nodes_pai
 
 def main():
 	if len(sys.argv) < 7:
-		print "usage: ./deepmatching_for_cmty.py [filename] [sample rate]  [community throd] [loop count] [distance function] [remarks]"
+		print "usage: ./deepmatching_for_cmty.py [filename] [sample rate]  [community size threshold] [loop count] [distance function = 1] [remarks]"
 		return -1
 	sample_rate = float(sys.argv[2])
 	throd_value = int(sys.argv[3])
@@ -959,6 +1021,7 @@ def main():
 		sys.stdout.flush()
 		G1,G2 = bi_sample_graph(nx_G,sample_rate)
 
+		#obtain the pairs of index of the matched communities
 		old_rate,left_graph,right_graph,left_cmty_list,right_cmty_list,matched_index = repeated_eavalute_accuracy_by_feature(G1,G2,limit_cmty_nodes = throd_value)
 		#record the small commnuity size
 		df.write("%ith loop:\n"%i)
@@ -976,7 +1039,7 @@ def main():
 		rate_list.append(old_rate)
 		sum_acc += old_rate
 		
-		# the dimensions of feature of the nodes obtained by node2vec
+		# the dimensions of feature of the nodes obtained by deepwalk 
 		matched_nummber_nodes,seed_rate,seed_nodes_list = obtain_accuracy_rate_in_matched_cmty(left_graph,left_cmty_list,right_graph,right_cmty_list,matched_index,dimensions) 
 		df.write("dimensions: %d\n" % dimensions)
 		df.write("deepwalk results[cmty-deepwalk-seed]: ")
