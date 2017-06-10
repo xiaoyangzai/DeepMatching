@@ -713,7 +713,7 @@ def obtain_accuracy_rate_in_matched_cmty(left_graph,left_cmty_list,right_graph,r
 				#not finding the best matched node
 				continue
 			
-			#record the nodes pairs which is same one node judeged by algorm
+			#record the nodes pairs which is same one node judeged by algrithm
 			if best_score >= 1.0:
 				matched_nodes_pairs[small_node[i]] = long_node[C_index]
 				if small_node[i] == long_node[C_index]:
@@ -725,7 +725,7 @@ def obtain_accuracy_rate_in_matched_cmty(left_graph,left_cmty_list,right_graph,r
 
 		#matched_nodes_number.append([original_size,common_nodes,deepwalk_matched_nodes_size,count])
 		print "matched nodes count: %d" % deepwalk_matched_nodes_size 
-		print "read seed nodes count: %d" % count 
+		print "real seed nodes count: %d" % count 
 
 		
 		print "identification of seed rate....."
