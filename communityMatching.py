@@ -15,6 +15,7 @@ from sklearn.metrics.pairwise import *
 import snap
 import deepMatching as dm
 from itertools import izip
+from credibility import *
 
 def transform_snap_to_networkx(SG):
 	'''
@@ -681,49 +682,57 @@ def obtain_accuracy_rate_in_matched_cmty(left_graph,left_cmty_list,right_graph,r
 
 		
 		#mapping the nodes between the communities
-		print "map prob maxtrix....."
-		small_node,long_node,P = dm.map_prob_maxtrix(small_G,long_G,dimensions=dimensions)
-		count = 0
-		long_loop_count = long_G.order()
+		#method 1:bipartite
+		matches = dm.bipartite_matching(small_G,long_G)
+		#print "map prob maxtrix....."
+		#small_node,long_node,P = dm.map_prob_maxtrix(small_G,long_G,dimensions=dimensions)
+		#count = 0
+		#long_loop_count = long_G.order()
 		deepwalk_common_nodes_list = []	
 
 
-		for i in range(len(small_node)):
-			#obtain ith row
-			similarity_list =[(index,P[i][index]) for index in range(long_loop_count)]
-			similarity_list = sorted(similarity_list,key=lambda x:x[1],reverse = True)
-			while len(similarity_list) > 0:
-			#record the matched nodes obtained by deepwalk	
-				#obtain the similiarity list of the best one similiaried with the ith cmty from big community list
-				best_score = similarity_list[0][1]
-				C_index = similarity_list[0][0]
+		#for i in range(len(small_node)):
+		#	#obtain ith row
+		#	similarity_list =[(index,P[i][index]) for index in range(long_loop_count)]
+		#	similarity_list = sorted(similarity_list,key=lambda x:x[1],reverse = True)
+		#	while len(similarity_list) > 0:
+		#	#record the matched nodes obtained by deepwalk	
+		#		#obtain the similiarity list of the best one similiaried with the ith cmty from big community list
+		#		best_score = similarity_list[0][1]
+		#		C_index = similarity_list[0][0]
 
-				similarity_list.pop(0)
+		#		similarity_list.pop(0)
 
-				dest_similarity_list = []	
-				for item in P:
-					dest_similarity_list.append(item[C_index])
+		#		dest_similarity_list = []	
+		#		for item in P:
+		#			dest_similarity_list.append(item[C_index])
 
-				dest_similarity_list = sorted(dest_similarity_list,reverse=True)
-				if best_score < dest_similarity_list[0]:
-					continue;
-				break
+		#		dest_similarity_list = sorted(dest_similarity_list,reverse=True)
+		#		if best_score < dest_similarity_list[0]:
+		#			continue;
+		#		break
 
-			if len(similarity_list) == 0:
-				#not finding the best matched node
-				continue
-			
-			#record the nodes pairs which is same one node judeged by algrithm
-			if best_score >= 1.0:
-				matched_nodes_pairs[small_node[i]] = long_node[C_index]
-				if small_node[i] == long_node[C_index]:
-					#real seed node
-					count += 1
-					deepwalk_common_nodes_list.append(small_node[i])
+		#	if len(similarity_list) == 0:
+		#		#not finding the best matched node
+		#		continue
+		#	
+		#	#record the nodes pairs which is same one node judeged by algrithm
+		#	if best_score >= 1.0:
+		#		matched_nodes_pairs[small_node[i]] = long_node[C_index]
+		#		if small_node[i] == long_node[C_index]:
+		#			#real seed node
+		#			count += 1
+		#			deepwalk_common_nodes_list.append(small_node[i])
 
-		deepwalk_matched_nodes_size = len(matched_nodes_pairs)
+		#deepwalk_matched_nodes_size = len(matched_nodes_pairs)
 
 		#matched_nodes_number.append([original_size,common_nodes,deepwalk_matched_nodes_size,count])
+		deepwalk_matched_nodes_size = len(matches)
+		count = 0
+		for item in matches:
+			if item[0] == item[1]:
+				count += 1
+				deepwalk_common_nodes_list.append(item[0])
 		print "matched nodes count: %d" % deepwalk_matched_nodes_size 
 		print "real seed nodes count: %d" % count 
 
@@ -737,7 +746,13 @@ def obtain_accuracy_rate_in_matched_cmty(left_graph,left_cmty_list,right_graph,r
 			continue
 
 		# seed nodes detection by using the edge_consisitency method	
-		temp_list,temp_count,temp_rate = obtain_optimal_edges_consistency_throd(small_G,long_G,matched_nodes_pairs,deepwalk_common_nodes_list)
+		#temp_list,temp_count,temp_rate = obtain_optimal_edges_consistency_throd(small_G,long_G,matched_nodes_pairs,deepwalk_common_nodes_list)
+
+		#seed nodes detection by using edge_cridibility method
+		#temp_list,temp_count,temp_rate = obtain_seed_with_edges_credibility(matched_nodes_pairs,small_G,long_G,deepwalk_common_nodes_list)
+
+		#seed nodes detection by using bipartite method
+		temp_list,temp_count,temp_rate = obtain_seed_with_edges_credibility(matches,small_G,long_G,deepwalk_common_nodes_list)
 		seed_rate.append(temp_rate)
 		seed_nodes_list.append(temp_list)
 		matched_nodes_number.append([original_size,common_nodes,deepwalk_matched_nodes_size,count,len(temp_list),temp_count])

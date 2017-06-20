@@ -1,4 +1,5 @@
 from deepMatching import *
+import networkx as nx
 
 
 def consistent_edges(matches, G1, G2):
@@ -11,6 +12,7 @@ def consistent_edges(matches, G1, G2):
     '''
     # matchmapping = dict([(string.atoi(match[0]), string.atoi(match[1])) for match in matches])
     matchmapping = dict([(match[0], match[1]) for match in matches])
+    #matchmapping = matches
     cedges = {}
     for edge in G1.edges():
         # print edge, (matchmapping.get(edge[0], -1), matchmapping.get(edge[1], -1))
@@ -61,7 +63,24 @@ def maximum_consistency_matches(matches, G1, G2, nodenum_limit=20, cth = 1.0):
     if maxindex > nodenum_limit -1 and maxcons > cth:
         credible_matches = [match for match, cdeg in mcdeg[0:maxindex+1]]
     return credible_matches
+def z_score(gcr,subG1,subG2):
 
+	subg1_m = nx.number_of_edges(subG1)
+	subg2_m = nx.number_of_edges(subG2)
+
+	subg1_n = nx.number_of_nodes(subG1)
+	subg2_n = nx.number_of_nodes(subG2)
+	if subg1_n <= 1 or subg2_n <= 1 or subg1_m == 0 or subg2_m == 0:
+		return 0.0
+
+	density_subg1 = 2*subg1_m * 1.0 / (subg1_n *(subg1_n - 1)) 
+	density_subg2 = 2*subg2_m * 1.0 / (subg2_n *(subg2_n - 1)) 
+
+	density = density_subg1 if density_subg1 <= density_subg2 else density_subg2
+	if density == 1:
+		return 0.0
+	z = ((gcr - density)*1.0) / (density * (1 - density)) 
+	return z
 
 def consistency_sequence(matches, G1, G2):
     '''
@@ -83,15 +102,18 @@ def consistency_sequence(matches, G1, G2):
     nodes1 = []
     nodes2 = []
     graph_matching_consistent_ratio_list = []
+    graph_matching_z_score_list = []
     for match, cred in mcdeg:
-        nodes1.append(match[0])
-        nodes2.append(match[1])
-        subG1 = G1.subgraph(nodes1)
-        subG2 = G2.subgraph(nodes2)
-        gcr = new_graph_consistency(cons_edges, subG1, subG2)
-        graph_matching_consistent_ratio_list.append(gcr)
+		nodes1.append(match[0])
+		nodes2.append(match[1])
+		subG1 = G1.subgraph(nodes1)
+		subG2 = G2.subgraph(nodes2)
+		gcr = graph_consistency(cons_edges, subG1, subG2)
+		z = z_score(gcr,subG1,subG2)
+		graph_matching_consistent_ratio_list.append(gcr)
+		graph_matching_z_score_list.append(z)
         # print match, gcr
-    return graph_matching_consistent_ratio_list
+    return graph_matching_consistent_ratio_list,graph_matching_z_score_list,nodes1,nodes2
 
 
 def graph_consistency(consistent_edges, G1, G2):
@@ -113,55 +135,6 @@ def graph_consistency(consistent_edges, G1, G2):
     return consistent_edge_count*1.0/max(G2_size, G1_size)
 
 
-def new_graph_consistency(consistent_edges, G1, G2):
-    '''
-    Calculate the consistency between two graphs
-    :param consistent_edges: A dict, composed of the consistent edges
-    :param G1: the matching graph
-    :param G2: the matching graph
-    :return: the consistency, a float value between 0.0 to 1.0. 
-    '''
-    G1_size = G1.size()
-    G2_size = G2.size()
-    N = G1.order()
-    if G1_size == 0 or G2_size ==0:
-        return 0.0
-    consistent_edge_count = 0.0
-    for edge in G1.edges():
-        if edge in consistent_edges:
-            consistent_edge_count += 1.0
-    return consistent_edge_count*0.25*N*(N-1)/(G2_size*G1_size)
-
-
-def main():
-    nx_G = nx.erdos_renyi_graph(500, 0.1)
-    # nx_G = nx.barabasi_albert_graph(100, 5)
-    # nx_G = read_graph('./data/karate.edgelist')
-    # nx.draw_spring(nx_G, with_labels=True)
-    G1 = sample_graph(nx_G, 0.85)
-    G2 = sample_graph(nx_G, 0.85)
-    count = 0
-    matches = bipartite_matching(G1, G2, dimensions=160)
-    for match in matches:
-        if match[0] == match[1]:
-            count += 1
-    print 'Accuracy:', count*1.0/G2.order()
-    mcdegs = match_consistent_degree(matches, G1, G2)
-    for match, cdeg in sorted(mcdegs.items(), key=lambda x:x[1], reverse=True):
-        print match, cdeg, G1.degree(match[0]), G2.degree(match[1])
-    edge_consists = consistency_sequence(matches, G1, G2)
-    plot_edge_conssitencies(edge_consists)
-    matches = maximum_consistency_matches(matches, G1, G2)
-    nx.write_edgelist(G1, './data/G1.edgelist', data=False)
-    nx.write_edgelist(G2, './data/G2.edgelist', data=False)
-    matchf = open('./data/matches.txt', 'w')
-    print len(matches)
-    for match in matches:
-        print match
-        matchf.write(str(match[0]) + ',' + str(match[1]) + '\n')
-    matchf.close()
-
-
 def plot_edge_conssitencies(edge_consists):
     '''
     Used to plot the consistency sequence
@@ -175,5 +148,56 @@ def plot_edge_conssitencies(edge_consists):
     plt.tight_layout()
     plt.show()
 
-if __name__ == '__main__':
-    main()
+
+
+def obtain_seed_with_edges_credibility(matches,G1,G2,real_common_nodes):
+
+	matching_consistent_ratio_list,graph_matching_z_score_list,nodes_left,nodes_right = consistency_sequence(matches, G1, G2)
+
+	length = len(matching_consistent_ratio_list)
+	h = matching_consistent_ratio_list.index(max(matching_consistent_ratio_list))
+	while True:
+		if matching_consistent_ratio_list[h] >= 1:
+			matching_consistent_ratio_list[h] = 0
+			h = matching_consistent_ratio_list.index(max(matching_consistent_ratio_list))
+		else:
+			break
+
+	print "h = %d,match_ratio = %.2f" % (h,matching_consistent_ratio_list[h])
+	eligible_nodes = nodes_left[:h + 1] 
+
+	print "seed list total len: %d" % len(eligible_nodes) 
+	if len(eligible_nodes) == 0:
+		print "real seed: 0"
+		print "seed rate: 0" 
+		return eligible_nodes,0,0
+	count = 0
+	for node in eligible_nodes:
+		if node in real_common_nodes:
+			count += 1
+	rate = float(count)/len(eligible_nodes)
+	print "real seed: %d" % count
+	print "seed accuracy rate: %.2f" % rate
+	print "consistency degree: "
+	mcdeg = match_consistent_degree(matches, G1, G2)
+	mcdeg = sorted(mcdeg.items(), key=lambda x:x[1], reverse=True)
+
+	for i in range(len(mcdeg)):
+		temp_count = 0
+		print "%d :" % i,
+		print mcdeg[i],
+		temp = nodes_left[:i+1]
+		for node in temp:
+			if node in real_common_nodes:
+				temp_count += 1
+		temp_rate = float(temp_count)/len(temp)
+		print"\t %.2f" % temp_rate
+	#	if i == 20:
+	#		break
+
+	#plot_edge_conssitencies(matching_consistent_ratio_list)
+	plot_edge_conssitencies(graph_matching_z_score_list)
+	return eligible_nodes,count,rate
+	
+
+
