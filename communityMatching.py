@@ -726,6 +726,8 @@ def obtain_accuracy_rate_in_matched_cmty(left_graph,left_cmty_list,right_graph,r
 		#mapping the nodes between the communities
 		#pre-process stage
 		print "pre-process stage is begining...."
+
+
 		if seed_matching_method == dm.bipartite_matching:
 			matches = seed_matching_method(small_G,long_G)
 		if seed_matching_method == deepwalk_map_prob_maxtrix:
@@ -765,6 +767,7 @@ def obtain_accuracy_rate_in_matched_cmty(left_graph,left_cmty_list,right_graph,r
 
 		pre_process_seed_rate.append(pre_process_rate)
 		pre_process_seed_nodes_list.append(pre_process_list)
+
 		print "pre-process stage accuracy rate: %.2f" % pre_process_rate
 		print "%d : %d" % (len(pre_process_list),pre_process_count) 
 		print "pre-process stage has completed!"

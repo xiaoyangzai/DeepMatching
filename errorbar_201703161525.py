@@ -84,6 +84,7 @@ def draw_seed_rate(cmty_deepwalk_seed_list,dimensions,dataset_info,sample,cmty_s
 ):
 	total_count = len(dimensions)
 	fig, axes = plt.subplots(nrows=5, ncols=total_count)
+	fig.subplots_adjust(wspace=1,hspace=1)
 	axlist = axes.flatten()
 	flag = True
 	total_width = 0.8
@@ -115,7 +116,8 @@ def draw_seed_rate(cmty_deepwalk_seed_list,dimensions,dataset_info,sample,cmty_s
 		ax0.bar(a+5 * width + 0.04,x[5],width=width,color=colors[5], label="size after edge identify")
 		ax0.bar(a+6 * width + 0.06,x[6],width=width,color=colors[6], label="size before refine identify")
 		ax0.bar(a+7 * width + 0.04,x[7],width=width,color=colors[7], label="size after refine identify")
-		ax0.legend(prop={'size': 8})
+		#ax0.legend(prop={'size': 8})
+		ax0.legend(ncol=4)
 		ax0.set_title('Dimensions: %.2f' % dimensions[index])
 		ax0.set_ylabel("Common Nodes Number")
 		ax0.set_xlabel("Community Index")
