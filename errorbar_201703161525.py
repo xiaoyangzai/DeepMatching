@@ -79,12 +79,50 @@ def load_seed_rate(filename):
 		#	continue
 	print "load finished....ok"
 	return cmty_deepwalk_seed_list,dimensions,dataset_info,sample,cmty_size_upper_limit,remarks
+
+#def draw_one_by_one(cmty_deepwalk_seed_list):
+#    fig, ax0 = plt.subplots()
+#	len_loop = len(cmty_deepwalk_seed_list)
+#	colors = ['blue','deepskyblue','red','tomato', 'green', 'springgreen','crimson','palevioletred']
+#	for index in range(len_loop):
+#		x = [[],[],[],[],[],[],[],[]]
+#		for item in cmty_deepwalk_seed_list[index]:
+#			x[0].append(item[0])
+#			x[1].append(item[1])
+#			x[2].append(item[2])
+#			x[3].append(item[3])
+#			x[4].append(item[4])
+#			x[5].append(item[5])
+#			x[6].append(item[6])
+#			x[7].append(item[7])
+#		a = np.arange(len(x[0]))
+#		a = a - (total_width - width) / 2
+#
+#		ax0.bar(a,x[0],width=width,color=colors[0], label="nodes of the samll community")
+#		ax0.bar(a+ width,x[1],width = width,color=colors[1], label="matched same nodes by community detection")
+#		ax0.bar(a+2 * width + 0.02,x[2],width=width,color=colors[2], label="macthed nodes by CPD")
+#		ax0.bar(a+3 * width + 0.02,x[3],width=width,color=colors[3], label="matched same nodes by CPD")
+#		ax0.bar(a+4 * width + 0.04,x[4],width=width,color=colors[4], label="matched nodes by Greedy seed identification")
+#		ax0.bar(a+5 * width + 0.04,x[5],width=width,color=colors[5], label="matched same nodes by Greedy seed identification")
+#		ax0.bar(a+6 * width + 0.06,x[6],width=width,color=colors[6], label="matched nodes by propagation")
+#		ax0.bar(a+7 * width + 0.04,x[7],width=width,color=colors[7], label="matched same nodes by propagation")
+#		#ax0.legend(prop={'size': 8})
+#		ax0.legend(ncol=4,fontsize=13)
+#		#ax0.set_title('Dimensions: %.2f' % dimensions[index])
+#		ax0.set_ylabel("Same Nodes Number",fontsize=17)
+#		ax0.set_xlabel("Community Index",fontsize=17)
+#		ax0.set_xticks(range(len(x[0])))
+#		ax0.set_yticks(range(0,1000,100))
+
+
+
+
 			 
 def draw_seed_rate(cmty_deepwalk_seed_list,dimensions,dataset_info,sample,cmty_size_upper_limit,remarks
 ):
 	total_count = len(dimensions)
 	fig, axes = plt.subplots(nrows=5, ncols=total_count)
-	fig.subplots_adjust(wspace=1,hspace=1)
+	fig.subplots_adjust(wspace=0.7,hspace=0.7)
 	axlist = axes.flatten()
 	flag = True
 	total_width = 0.8
@@ -108,21 +146,21 @@ def draw_seed_rate(cmty_deepwalk_seed_list,dimensions,dataset_info,sample,cmty_s
 		a = np.arange(len(x[0]))
 		a = a - (total_width - width) / 2
 
-		ax0.bar(a,x[0],width=width,color=colors[0], label="size before community identify")
-		ax0.bar(a+ width,x[1],width = width,color=colors[1], label="size after community identify")
-		ax0.bar(a+2 * width + 0.02,x[2],width=width,color=colors[2], label="size before deepwalk identify")
-		ax0.bar(a+3 * width + 0.02,x[3],width=width,color=colors[3], label="size after deepwalk identify")
-		ax0.bar(a+4 * width + 0.04,x[4],width=width,color=colors[4], label="size before edge identify")
-		ax0.bar(a+5 * width + 0.04,x[5],width=width,color=colors[5], label="size after edge identify")
-		ax0.bar(a+6 * width + 0.06,x[6],width=width,color=colors[6], label="size before refine identify")
-		ax0.bar(a+7 * width + 0.04,x[7],width=width,color=colors[7], label="size after refine identify")
+		ax0.bar(a,x[0],width=width,color=colors[0], label="nodes of the samll community")
+		ax0.bar(a+ width,x[1],width = width,color=colors[1], label="matched same nodes by community detection")
+		ax0.bar(a+2 * width + 0.02,x[2],width=width,color=colors[2], label="macthed nodes by CPD")
+		ax0.bar(a+3 * width + 0.02,x[3],width=width,color=colors[3], label="matched same nodes by CPD")
+		ax0.bar(a+4 * width + 0.04,x[4],width=width,color=colors[4], label="matched nodes by Greedy seed identification")
+		ax0.bar(a+5 * width + 0.04,x[5],width=width,color=colors[5], label="matched same nodes by Greedy seed identification")
+		ax0.bar(a+6 * width + 0.06,x[6],width=width,color=colors[6], label="matched nodes by propagation")
+		ax0.bar(a+7 * width + 0.04,x[7],width=width,color=colors[7], label="matched same nodes by propagation")
 		#ax0.legend(prop={'size': 8})
-		ax0.legend(ncol=4)
-		ax0.set_title('Dimensions: %.2f' % dimensions[index])
-		ax0.set_ylabel("Common Nodes Number")
-		ax0.set_xlabel("Community Index")
+		ax0.legend(ncol=4,fontsize=12)
+		ax0.set_title('Community detection -> Deepwal&CPD Mapping -> Greedy Seed identification -> Propagation Process',fontsize = 25 )
+		ax0.set_ylabel("Same Nodes Number",fontsize=18)
+		ax0.set_xlabel("Index of Community Pairs",fontsize=18)
 		ax0.set_xticks(range(len(x[0])))
-		ax0.set_yticks(range(0,1000,100))
+		ax0.set_yticks(range(0,1000,150))
 
 		ax1 = axlist[index + len_loop ]
 		rate_1 = []
@@ -134,9 +172,10 @@ def draw_seed_rate(cmty_deepwalk_seed_list,dimensions,dataset_info,sample,cmty_s
 				rate_1.append(float(x[1][temp_index_1])/x[0][temp_index_1])
 		temp_x_1 = range(len(x[0]))
 		ax1.plot(temp_x_1,rate_1,'bx-')
-		ax1.set_title('community Detection')
-		ax1.set_ylabel("Accuracy Rate")
-		ax1.set_xlabel("Community Index")
+		ax1.set_xticks(range(len(x[0])))
+		ax1.set_title('Community Detection',fontsize=18)
+		ax1.set_ylabel("Accuracy Rate",fontsize=18)
+		ax1.set_xlabel("Index of Community Pairs",fontsize=18)
 
 		ax2 = axlist[index + 2 * len_loop ]
 		rate_2 = []
@@ -148,9 +187,10 @@ def draw_seed_rate(cmty_deepwalk_seed_list,dimensions,dataset_info,sample,cmty_s
 				rate_2.append(float(x[3][temp_index_2])/x[2][temp_index_2])
 		temp_x_2= range(len(x[0]))
 		ax2.plot(temp_x_2,rate_2,'rv-')
-		ax2.set_title('DeepWalk Detection')
-		ax2.set_ylabel("Accuracy Rate")
-		ax2.set_xlabel("Community Index")
+		ax2.set_title('Deepwalk&CPD Mapping',fontsize=18)
+		ax2.set_ylabel("Accuracy Rate",fontsize=18)
+		ax2.set_xlabel("Index of Community Pairs",fontsize=18)
+		ax2.set_xticks(range(len(x[0])))
 
 		ax3 = axlist[index + 3 * len_loop ]
 
@@ -163,8 +203,10 @@ def draw_seed_rate(cmty_deepwalk_seed_list,dimensions,dataset_info,sample,cmty_s
 				rate_3.append(float(x[5][temp_index_3])/x[4][temp_index_3])
 		temp_x_3= range(len(x[0]))
 		ax3.plot(temp_x_3,rate_3,'go-')
-		ax3.set_title('Edges Detection')
-		ax3.set_ylabel("Accuracy Rate")
+		ax3.set_title('Greedy Seed Identigication',fontsize=18)
+		ax3.set_ylabel("Accuracy Rate",fontsize=18)
+		ax3.set_xlabel("Index of Community Pairs",fontsize=18)
+		ax3.set_xticks(range(len(x[0])))
 
 		ax4 = axlist[index + 4 * len_loop ]
 
@@ -177,14 +219,16 @@ def draw_seed_rate(cmty_deepwalk_seed_list,dimensions,dataset_info,sample,cmty_s
 				rate_4.append(float(x[7][temp_index_4])/x[6][temp_index_4])
 		temp_x_4= range(len(x[0]))
 		ax4.plot(temp_x_4,rate_4,'go-')
-		ax4.set_title('Refine Stage Detection')
-		ax4.set_ylabel("Accuracy Rate")
+		ax4.set_title('Propagation algorithm',fontsize=18)
+		ax4.set_ylabel("Accuracy Rate",fontsize=18)
+		ax4.set_xlabel("Index of Community Pairs",fontsize=18)
+		ax4.set_xticks(range(len(x[0])))
 
 
 
-	fig.suptitle("community detection method: %s\nsample: %.2f\nGraph Information: %s\n Remarks: %s" % ("best_partition",sample,dataset_info,remarks))
-	fig.subplots_adjust(hspace=0.25)
-	plt.subplots_adjust(hspace=0.4)
+	#fig.suptitle("community detection method: %s\nsample: %.2f\nGraph Information: %s\n Remarks: %s" % ("best_partition",sample,dataset_info,remarks))
+	#fig.subplots_adjust(hspace=0.25)
+	#plt.subplots_adjust(hspace=0.4)
 	plt.show()
 
 def draw_sample_accuracy_rate_errorbar(accuracy_sample_dic):

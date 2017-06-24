@@ -213,7 +213,7 @@ def obtain_seed_with_edges_credibility(matches,G1,G2,real_common_nodes):
 		#if i == 20:
 		#	break
 
-	#plot_edge_conssitencies(matching_consistent_ratio_list)
+	plot_edge_conssitencies(matching_consistent_ratio_list)
 	print "h = %d,match_ratio = %.2f" % (h,matching_consistent_ratio_list[h])
 	plot_edge_conssitencies(graph_matching_z_score_list)
 	print "\t average_degree: %.3f" % (average_degree* 1.0 / (i+1))
