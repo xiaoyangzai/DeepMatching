@@ -59,39 +59,40 @@ def load_seed_rate(filename):
 			line.pop(-1)
 			for item in line:
 				item = item.split('-')
-				cmty_deepwalk_seed.append([int(item[0]),int(item[1]),int(item[2]),int(item[3]),int(item[4]),int(item[5])])
-			continue
-		if "seed accuracy" in line:
-			line = line.split(' ')
-			line[-1] = line[-1][:-1]
-			line.pop(0)
-			line.pop(0)
-			line.pop(0)
-			line.pop(0)
-			for item in line:
-				seed_accuracy_rate.append(float(item))
-			for index in range(len(seed_accuracy_rate)):
-				cmty_deepwalk_seed[index].append(seed_accuracy_rate[index])
+				cmty_deepwalk_seed.append([int(item[0]),int(item[1]),int(item[2]),int(item[3]),int(item[4]),int(item[5]),int(item[6]),int(item[7])])
 			cmty_deepwalk_seed_list.append(cmty_deepwalk_seed)
-			cmty_deepwalk_seed = []
-			seed_accuracy_rate = []
 			continue
+		#if "pre-process stage seed accuracy rate" in line:
+		#	line = line.split(' ')
+		#	line[-1] = line[-1][:-1]
+		#	line.pop(0)
+		#	line.pop(0)
+		#	line.pop(0)
+		#	line.pop(0)
+		#	for item in line:
+		#		seed_accuracy_rate.append(float(item))
+		#	for index in range(len(seed_accuracy_rate)):
+		#		cmty_deepwalk_seed[index].append(seed_accuracy_rate[index])
+		#	cmty_deepwalk_seed_list.append(cmty_deepwalk_seed)
+		#	cmty_deepwalk_seed = []
+		#	seed_accuracy_rate = []
+		#	continue
 	print "load finished....ok"
 	return cmty_deepwalk_seed_list,dimensions,dataset_info,sample,cmty_size_upper_limit,remarks
 			 
 def draw_seed_rate(cmty_deepwalk_seed_list,dimensions,dataset_info,sample,cmty_size_upper_limit,remarks
 ):
 	total_count = len(dimensions)
-	fig, axes = plt.subplots(nrows=4, ncols=total_count)
+	fig, axes = plt.subplots(nrows=5, ncols=total_count)
 	axlist = axes.flatten()
 	flag = True
 	total_width = 0.8
-	n = 6
+	n = 8
 	width = total_width/n;
 	len_loop = len(cmty_deepwalk_seed_list)
-	colors = ['blue','deepskyblue','red','tomato', 'green', 'springgreen']
+	colors = ['blue','deepskyblue','red','tomato', 'green', 'springgreen','crimson','palevioletred']
 	for index in range(len_loop):
-		x = [[],[],[],[],[],[]]
+		x = [[],[],[],[],[],[],[],[]]
 		ax0 = axlist[index]
 		for item in cmty_deepwalk_seed_list[index]:
 			x[0].append(item[0])
@@ -100,6 +101,9 @@ def draw_seed_rate(cmty_deepwalk_seed_list,dimensions,dataset_info,sample,cmty_s
 			x[3].append(item[3])
 			x[4].append(item[4])
 			x[5].append(item[5])
+			x[6].append(item[6])
+			x[7].append(item[7])
+
 		a = np.arange(len(x[0]))
 		a = a - (total_width - width) / 2
 
@@ -109,12 +113,14 @@ def draw_seed_rate(cmty_deepwalk_seed_list,dimensions,dataset_info,sample,cmty_s
 		ax0.bar(a+3 * width + 0.02,x[3],width=width,color=colors[3], label="size after deepwalk identify")
 		ax0.bar(a+4 * width + 0.04,x[4],width=width,color=colors[4], label="size before edge identify")
 		ax0.bar(a+5 * width + 0.04,x[5],width=width,color=colors[5], label="size after edge identify")
-		ax0.legend(prop={'size': 6})
+		ax0.bar(a+6 * width + 0.06,x[6],width=width,color=colors[6], label="size before refine identify")
+		ax0.bar(a+7 * width + 0.04,x[7],width=width,color=colors[7], label="size after refine identify")
+		ax0.legend(prop={'size': 8})
 		ax0.set_title('Dimensions: %.2f' % dimensions[index])
 		ax0.set_ylabel("Common Nodes Number")
 		ax0.set_xlabel("Community Index")
-		ax0.set_xticks(range(-1,len(x[0])))
-		ax0.set_yticks(range(0,800,100))
+		ax0.set_xticks(range(len(x[0])))
+		ax0.set_yticks(range(0,1000,100))
 
 		ax1 = axlist[index + len_loop ]
 		rate_1 = []
@@ -157,6 +163,23 @@ def draw_seed_rate(cmty_deepwalk_seed_list,dimensions,dataset_info,sample,cmty_s
 		ax3.plot(temp_x_3,rate_3,'go-')
 		ax3.set_title('Edges Detection')
 		ax3.set_ylabel("Accuracy Rate")
+
+		ax4 = axlist[index + 4 * len_loop ]
+
+		rate_4 = []
+		temp_index_4 = 0
+		for temp_index_4 in range(len(x[0])):
+			if x[6][temp_index_4] == 0:
+				rate_4.append(0)
+			else:
+				rate_4.append(float(x[7][temp_index_4])/x[6][temp_index_4])
+		temp_x_4= range(len(x[0]))
+		ax4.plot(temp_x_4,rate_4,'go-')
+		ax4.set_title('Refine Stage Detection')
+		ax4.set_ylabel("Accuracy Rate")
+
+
+
 	fig.suptitle("community detection method: %s\nsample: %.2f\nGraph Information: %s\n Remarks: %s" % ("best_partition",sample,dataset_info,remarks))
 	fig.subplots_adjust(hspace=0.25)
 	plt.subplots_adjust(hspace=0.4)

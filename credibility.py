@@ -164,20 +164,20 @@ def obtain_seed_with_edges_credibility(matches,G1,G2,real_common_nodes):
 			break
 
 	print "h = %d,match_ratio = %.2f" % (h,matching_consistent_ratio_list[h])
-	eligible_nodes = nodes_left[:h + 1] 
+	eligible_nodes = [(nodes_left[i],nodes_right[i]) for i in range(h+1)] 
 
-	print "seed list total len: %d" % len(eligible_nodes) 
+	#print "seed list total len: %d" % len(eligible_nodes) 
 	if len(eligible_nodes) == 0:
-		print "real seed: 0"
-		print "seed rate: 0" 
+		#print "real seed: 0"
+		#print "seed rate: 0" 
 		return eligible_nodes,0,0
 	count = 0
 	for node in eligible_nodes:
-		if node in real_common_nodes:
+		if node[0] == node[1]: 
 			count += 1
 	rate = float(count)/len(eligible_nodes)
-	print "real seed: %d" % count
-	print "seed accuracy rate: %.2f" % rate
+	#print "real seed: %d" % count
+	#print "seed accuracy rate: %.2f" % rate
 	print "consistency degree: "
 	mcdeg = match_consistent_degree(matches, G1, G2)
 	mcdeg = sorted(mcdeg.items(), key=lambda x:x[1], reverse=True)
@@ -192,11 +192,11 @@ def obtain_seed_with_edges_credibility(matches,G1,G2,real_common_nodes):
 				temp_count += 1
 		temp_rate = float(temp_count)/len(temp)
 		print"\t %.2f" % temp_rate
-	#	if i == 20:
-	#		break
+		#if i == 20:
+		#	break
 
 	#plot_edge_conssitencies(matching_consistent_ratio_list)
-	plot_edge_conssitencies(graph_matching_z_score_list)
+	#plot_edge_conssitencies(graph_matching_z_score_list)
 	return eligible_nodes,count,rate
 	
 

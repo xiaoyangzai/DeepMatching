@@ -16,6 +16,7 @@ import snap
 import deepMatching as dm
 from itertools import izip
 from credibility import *
+from refinement import *
 
 def transform_snap_to_networkx(SG):
 	'''
@@ -649,7 +650,47 @@ def calculate_accuracy_rate_by_feature(SG1,SG1_new_cmty,SG2,SG2_new_cmty,score_l
 	print "accuracy rate: %.5f" % accuracy_rate
 	return accuracy_rate,big_G,small_G,big_new_cmty,small_new_cmty,matched_index
 
-def obtain_accuracy_rate_in_matched_cmty(left_graph,left_cmty_list,right_graph,right_cmty_list,matched_cmty_index_pairs,dimensions=65):
+def deepwalk_map_prob_maxtrix(small_G,long_G,dimensions):
+	print "detect seed list with deepwalk....."
+	small_node,long_node,P = dm.map_prob_maxtrix(small_G,long_G,dimensions=dimensions)
+	count = 0
+	long_loop_count = long_G.order()
+	
+	matches = []
+
+	for i in range(len(small_node)):
+		#obtain ith row
+		similarity_list =[(index,P[i][index]) for index in range(long_loop_count)]
+		similarity_list = sorted(similarity_list,key=lambda x:x[1],reverse = True)
+		while len(similarity_list) > 0:
+		#record the matched nodes obtained by deepwalk	
+			#obtain the similiarity list of the best one similiaried with the ith cmty from big community list
+			best_score = similarity_list[0][1]
+			C_index = similarity_list[0][0]
+
+			similarity_list.pop(0)
+
+			dest_similarity_list = []	
+			for item in P:
+				dest_similarity_list.append(item[C_index])
+
+			dest_similarity_list = sorted(dest_similarity_list,reverse=True)
+			if best_score < dest_similarity_list[0]:
+				continue;
+			break
+
+		if len(similarity_list) == 0:
+			#not finding the best matched node
+			continue
+		
+		#record the nodes pairs which is same one node judeged by algrithm
+		if best_score >= 1.0:
+			matches.append((small_node[i],long_node[C_index]))
+
+	return matches
+
+	
+def obtain_accuracy_rate_in_matched_cmty(left_graph,left_cmty_list,right_graph,right_cmty_list,matched_cmty_index_pairs,dimensions=65,seed_matching_method = dm.bipartite_matching):
 	'''
 	the @left_cmty_list obtained by the best_partition to @left_graph consists of nodes of the communities
 	matched_cmty_index_pairs contains the pairs of index of the communities from the @left_cmty_list and @right_cmty_list and the number of the nodes in both communities,just like [[1,2,300],...] which means the 1th community of the @left_graph matched with the 2th of the @right_graph. they have 300 nodes in both 1th and 2th communities
@@ -660,10 +701,11 @@ def obtain_accuracy_rate_in_matched_cmty(left_graph,left_cmty_list,right_graph,r
 		@seed_nodes_list: list, consisted of the total seed nodes index of each matched communities obtained by edge_consistency_method
 	'''
 	matched_nodes_number = []
-	seed_rate = []
-	seed_nodes_list = []
+	pre_process_seed_rate = []
+	pre_process_seed_nodes_list = []
+	refine_nodes_rate = []
+	refine_nodes_matches_list = []
 	for item in matched_cmty_index_pairs:
-		matched_nodes_pairs = {} 
 		left_index = item[0]
 		right_index = item[1]
 		common_nodes = item[2]
@@ -682,83 +724,64 @@ def obtain_accuracy_rate_in_matched_cmty(left_graph,left_cmty_list,right_graph,r
 
 		
 		#mapping the nodes between the communities
-		#method 1:bipartite
-		matches = dm.bipartite_matching(small_G,long_G)
-		#print "map prob maxtrix....."
-		#small_node,long_node,P = dm.map_prob_maxtrix(small_G,long_G,dimensions=dimensions)
-		#count = 0
-		#long_loop_count = long_G.order()
+		#pre-process stage
+		print "pre-process stage is begining...."
+		if seed_matching_method == dm.bipartite_matching:
+			matches = seed_matching_method(small_G,long_G)
+		if seed_matching_method == deepwalk_map_prob_maxtrix:
+			matches = seed_matching_method(small_G,long_G,dimensions=dimensions)
+
 		deepwalk_common_nodes_list = []	
-
-
-		#for i in range(len(small_node)):
-		#	#obtain ith row
-		#	similarity_list =[(index,P[i][index]) for index in range(long_loop_count)]
-		#	similarity_list = sorted(similarity_list,key=lambda x:x[1],reverse = True)
-		#	while len(similarity_list) > 0:
-		#	#record the matched nodes obtained by deepwalk	
-		#		#obtain the similiarity list of the best one similiaried with the ith cmty from big community list
-		#		best_score = similarity_list[0][1]
-		#		C_index = similarity_list[0][0]
-
-		#		similarity_list.pop(0)
-
-		#		dest_similarity_list = []	
-		#		for item in P:
-		#			dest_similarity_list.append(item[C_index])
-
-		#		dest_similarity_list = sorted(dest_similarity_list,reverse=True)
-		#		if best_score < dest_similarity_list[0]:
-		#			continue;
-		#		break
-
-		#	if len(similarity_list) == 0:
-		#		#not finding the best matched node
-		#		continue
-		#	
-		#	#record the nodes pairs which is same one node judeged by algrithm
-		#	if best_score >= 1.0:
-		#		matched_nodes_pairs[small_node[i]] = long_node[C_index]
-		#		if small_node[i] == long_node[C_index]:
-		#			#real seed node
-		#			count += 1
-		#			deepwalk_common_nodes_list.append(small_node[i])
-
-		#deepwalk_matched_nodes_size = len(matched_nodes_pairs)
-
-		#matched_nodes_number.append([original_size,common_nodes,deepwalk_matched_nodes_size,count])
 		deepwalk_matched_nodes_size = len(matches)
-		count = 0
+		deepwalk_real_seed_count = 0
 		for item in matches:
 			if item[0] == item[1]:
-				count += 1
+				deepwalk_real_seed_count += 1
 				deepwalk_common_nodes_list.append(item[0])
-		print "matched nodes count: %d" % deepwalk_matched_nodes_size 
-		print "real seed nodes count: %d" % count 
+		if deepwalk_real_seed_count == 0:
+			print "no one is right in the matched obtained by deepwalk"
+			pre_process_list = []
+			pre_process_count = 0
+			pre_process_rate = 0.0
+			refine_match_nodes = []
+			refine_real_matched_nodes_count = 0
+			refine_rate = 0.0
 
-		
-		print "identification of seed rate....."
-		if count == 0:
-			seed_nodes_list.append([])
-			seed_rate.append(0)
-			matched_nodes_number.append([original_size,common_nodes,deepwalk_matched_nodes_size,count,0,0])
-			print "identification of seed rate...OK"
+			pre_process_seed_rate.append(pre_process_rate)
+			pre_process_seed_nodes_list.append(pre_process_list)
+			print "pre-process stage accuracy rate: %.2f" % pre_process_rate
+			print "pre-process stage has completed!"
+
+			refine_nodes_rate.append(refine_rate)
+			refine_nodes_matches_list.append(refine_match_nodes) 
+			print "refine stage accuracy rate: %.2f" % refine_rate
+			print "refine stage has completed!"
+
+			matched_nodes_number.append([original_size,common_nodes,deepwalk_matched_nodes_size,deepwalk_real_seed_count,len(pre_process_list),pre_process_count,len(refine_match_nodes),refine_real_matched_nodes_count])
 			continue
 
-		# seed nodes detection by using the edge_consisitency method	
-		#temp_list,temp_count,temp_rate = obtain_optimal_edges_consistency_throd(small_G,long_G,matched_nodes_pairs,deepwalk_common_nodes_list)
+		#pre-process stage: seed nodes detection
+		pre_process_list,pre_process_count,pre_process_rate = obtain_seed_with_edges_credibility(matches,small_G,long_G,deepwalk_common_nodes_list)
 
-		#seed nodes detection by using edge_cridibility method
-		#temp_list,temp_count,temp_rate = obtain_seed_with_edges_credibility(matched_nodes_pairs,small_G,long_G,deepwalk_common_nodes_list)
+		pre_process_seed_rate.append(pre_process_rate)
+		pre_process_seed_nodes_list.append(pre_process_list)
+		print "pre-process stage accuracy rate: %.2f" % pre_process_rate
+		print "%d : %d" % (len(pre_process_list),pre_process_count) 
+		print "pre-process stage has completed!"
 
-		#seed nodes detection by using bipartite method
-		temp_list,temp_count,temp_rate = obtain_seed_with_edges_credibility(matches,small_G,long_G,deepwalk_common_nodes_list)
-		seed_rate.append(temp_rate)
-		seed_nodes_list.append(temp_list)
-		matched_nodes_number.append([original_size,common_nodes,deepwalk_matched_nodes_size,count,len(temp_list),temp_count])
+		#refine stage: refine the remain nodes in the graph with seed list
+		print "refine stage start ...."
+		refine_match_nodes,refine_real_matched_nodes_count,refine_rate = match_propagation(pre_process_list,small_G,long_G)
 		
-	print "map prob maxtrix....OK"
-	return matched_nodes_number,seed_rate,seed_nodes_list
+		refine_nodes_rate.append(refine_rate)
+		refine_nodes_matches_list.append(refine_match_nodes) 
+		print "refine stage accuracy rate: %.2f" % refine_rate
+		print "%d : %d" % (len(refine_match_nodes),refine_real_matched_nodes_count) 
+		print "refine stage has completed!"
+		
+		matched_nodes_number.append([original_size,common_nodes,deepwalk_matched_nodes_size,deepwalk_real_seed_count,len(pre_process_list),pre_process_count,len(refine_match_nodes),refine_real_matched_nodes_count])
+		
+	return matched_nodes_number,pre_process_seed_rate,pre_process_seed_nodes_list,refine_nodes_rate,refine_nodes_matches_list
 
 def obtain_optimal_edges_consistency_throd(small_G,long_G,matched_nodes_pairs,deepwalk_common_nodes_list):
 	'''
@@ -1030,7 +1053,7 @@ def main():
 	print "begin to map community....."	
 	sum_acc = 0.0
 	rate_list = []
-	dimensions = 120 
+	dimensions = 160 
 	for i in range(repeated_count):
 		print "->%d"%i ,
 		sys.stdout.flush()
@@ -1055,17 +1078,25 @@ def main():
 		sum_acc += old_rate
 		
 		# the dimensions of feature of the nodes obtained by deepwalk 
-		matched_nummber_nodes,seed_rate,seed_nodes_list = obtain_accuracy_rate_in_matched_cmty(left_graph,left_cmty_list,right_graph,right_cmty_list,matched_index,dimensions) 
+		matched_nummber_nodes,pre_process_seed_rate,pre_process_seed_nodes_list,refine_rate,refine_match_nodes_list = obtain_accuracy_rate_in_matched_cmty(left_graph,left_cmty_list,right_graph,right_cmty_list,matched_index,dimensions) 
+
 		df.write("dimensions: %d\n" % dimensions)
 		df.write("deepwalk results[cmty-deepwalk-seed]: ")
 		for item in matched_nummber_nodes:
-			df.write("%d-%d-%d-%d-%d-%d " % (item[0],item[1],item[2],item[3],item[4],item[5]))
+			df.write("%d-%d-%d-%d-%d-%d-%d-%d " % (item[0],item[1],item[2],item[3],item[4],item[5],item[6],item[7]))
 			df.flush()
 		df.write('\n')
 		df.flush()
 		#finding the seed nodes and calculating the accuracy rate
-		df.write("seed accuracy rate: ")
-		for item in seed_rate:
+		df.write("pre-process stage seed accuracy rate: ")
+		for item in pre_process_seed_rate:
+			df.write(" %.5f" % item)
+			df.flush()
+		df.write('\n')
+		df.flush()
+
+		df.write("refine stage seed accuracy rate: ")
+		for item in refine_rate:
 			df.write(" %.5f" % item)
 			df.flush()
 		df.write('\n')
