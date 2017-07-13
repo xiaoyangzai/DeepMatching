@@ -144,13 +144,14 @@ def plot_edge_conssitencies(edge_consists):
     fig, ax = plt.subplots()
     ax.plot(edge_consists, '.-')
     ax.set_xlabel('Match index (ordered by consistent degree)')
-    ax.set_ylabel('Consistent edge ratio')
+    #ax.set_ylabel('Consistent edge ratio')
+    ax.set_ylabel('Z_score')
     plt.tight_layout()
     plt.show()
 
 
 
-def obtain_seed_with_edges_credibility(matches,G1,G2,real_common_nodes):
+def obtain_seed_with_edges_credibility(matches,G1,G2,real_common_nodes,loop_index = 0):
 
 	matching_consistent_ratio_list,graph_matching_z_score_list,nodes_left,nodes_right = consistency_sequence(matches, G1, G2)
 
@@ -167,17 +168,8 @@ def obtain_seed_with_edges_credibility(matches,G1,G2,real_common_nodes):
 	else:
 		for i in range(length):
 			if dic[i][1] <= 2:
-				h = dic[i][0]
+				h = dic[i-1][0]
 				break
-	
-
-
-	#while True:
-	#	if matching_consistent_ratio_list[h] >= 1:
-	#		matching_consistent_ratio_list[h] = 0
-	#		h = matching_consistent_ratio_list.index(max(matching_consistent_ratio_list))
-	#	else:
-	#		break
 
 	eligible_nodes = [(nodes_left[i],nodes_right[i]) for i in range(h+1)] 
 
@@ -199,25 +191,25 @@ def obtain_seed_with_edges_credibility(matches,G1,G2,real_common_nodes):
 
 	average_degree = 0
 	for i in range(len(mcdeg)):
-		temp_count = 0
-		print "%d :" % i,
-		print mcdeg[i],
+		#temp_count = 0
+		#print "%d :" % i,
+		#print mcdeg[i],
 		average_degree += mcdeg[i][1]
-		temp = nodes_left[:i+1]
+		#temp = nodes_left[:i+1]
 		
-		for node in temp:
-			if node in real_common_nodes:
-				temp_count += 1
-		temp_rate = float(temp_count)/len(temp)
-		print"\t %.2f" % temp_rate
+		#for node in temp:
+		#	if node in real_common_nodes:
+		#		temp_count += 1
+		#temp_rate = float(temp_count)/len(temp)
+		#print"\t %.2f" % temp_rate
 		#if i == 20:
 		#	break
 
-	plot_edge_conssitencies(matching_consistent_ratio_list)
-	print "h = %d,match_ratio = %.2f" % (h,matching_consistent_ratio_list[h])
-	plot_edge_conssitencies(graph_matching_z_score_list)
-	print "\t average_degree: %.3f" % (average_degree* 1.0 / (i+1))
-	return eligible_nodes,count,rate
+	#plot_edge_conssitencies(matching_consistent_ratio_list)
+	print "h = %d,z_score = %.2f" % (h,graph_matching_z_score_list[h])
+	#plot_edge_conssitencies(graph_matching_z_score_list)
+	print "average_degree: %.3f" % (average_degree* 1.0 / (i+1))
+	return eligible_nodes,count,rate,graph_matching_z_score_list[h]
 	
 
 

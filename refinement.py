@@ -11,18 +11,26 @@ def match_propagation(matches, G1, G2):
 	:param G2: the graph
 	:return: a larger match list
 	'''
-	Seeds = matches
+	Seeds = [item for item in matches]
+	#Seeds = matches
 	deg1 = G1.degree()
 	deg2 = G2.degree()
 	maxD1 = max([deg for node, deg in deg1.items()])
 	maxD2 = max([deg for node, deg in deg2.items()])
 	maxD = max(maxD1, maxD2)
+
+	rest_matches = []
 	for i in range(1, int(np.log2(maxD)))[::-1]:
 		limited_deg = 2**i
 		newmatches = propagation_phase(Seeds, G1, G2, limited_deg)
-		# print limited_deg, len(newmatches), len(Seeds)
-		Seeds = newmatches
+		#print "limited_deg: %d\tlegth of newmatches: %d\tlength of Seeds: %d" %(limited_deg, len(newmatches), len(Seeds))
+		Seeds.extend(newmatches)
+		rest_matches.extend(newmatches)
+
+
+
 	count = 0
+	#Seeds = rest_matches
 	for item in Seeds:
 		if item[0] == item[1]:
 			count += 1
@@ -30,7 +38,6 @@ def match_propagation(matches, G1, G2):
 		rate = 0.0	
 	else:
 		rate = count *1.0 / len(Seeds)
-	#print "refine rate: %.2f" % rate
 
 	return Seeds,count,rate
 
@@ -45,17 +52,19 @@ def propagation_phase(Seeds, G1, G2, limitdeg):
 	:param limitdeg: the limited degree
 	:return: A list of newly matched nodes, some matched nodes may also be included.
 	'''
-	# G1matched = set([s1 for s1, s2 in Seeds])
-	# G2matched = set([s2 for s1, s2 in Seeds])
+	G1matched = set([s1 for s1, s2 in Seeds])
+	G2matched = set([s2 for s1, s2 in Seeds])
 	WN = {}
 	for seed in Seeds:
 		N1 = G1.neighbors(seed[0])
 		N2 = G2.neighbors(seed[1])
 		for n1 in N1:
-			if G1.degree(n1)<limitdeg:#n1 in G1matched or
+			#if G1.degree(n1)<limitdeg:#n1 in G1matched or
+			if G1.degree(n1)<limitdeg or n1 in G1matched:
 				continue
 			for n2 in N2:
-				if G2.degree(n2) < limitdeg: # n2 in G2matched or
+				#if G2.degree(n2) < limitdeg: # n2 in G2matched or
+				if G2.degree(n2) < limitdeg or n2 in G2matched:
 					continue
 				if n1 not in WN:
 					WN[n1] = {}
