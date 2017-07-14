@@ -1,11 +1,14 @@
 #!/usr/bin/python
 
 import networkx as nx
+import sys
 import math
 from scipy.special import comb
 from bimatching.sparse_munkres import munkres
 from bimatching.HungarianAlgorithm import maxWeightMatching
 from collections import Counter
+import random
+import communityMatching
 
 
 '''
@@ -49,16 +52,27 @@ def calculate_probability_of_distance(G1,G2):
 		-------
 		distance_probability : A dictionary with distances as keys and probabilities as values
 	'''
-	node_pairs_shortest_length_G1 = nx.all_pairs_shortest_path_length(G1)	
-	node_pairs_shortest_length_G2 = nx.all_pairs_shortest_path_length(G2)	
+
+	#obtain the maximux connected components subgraph of graph G
+
+	Gc1 = max(nx.connected_component_subgraphs(G1),key=len)
+	Gc2 = max(nx.connected_component_subgraphs(G2),key=len)
+	node_pairs_shortest_length_G1 = nx.all_pairs_shortest_path_length(Gc1)	
+	node_pairs_shortest_length_G2 = nx.all_pairs_shortest_path_length(Gc2)	
 	distance_probability = {}
 	distance = []  
 	for key in node_pairs_shortest_length_G1:
-		distance.extend(node_pairs_shortest_length_G1[key].values())
+		temp_list = [i for i in node_pairs_shortest_length_G1[key].values() if i != 0]
+		distance.extend(temp_list)
 	for key in node_pairs_shortest_length_G2:
-		distance.extend(node_pairs_shortest_length_G2[key].values())
+		temp_list = [i for i in node_pairs_shortest_length_G2[key].values() if i != 0]
+		distance.extend(temp_list)
 	total_length = len(distance)		
+
 	distance_all_nodes_count = Counter(distance)
+	print "=======================distance============================="
+	print distance_all_nodes_count
+	print "============================================================"
 	for key in distance_all_nodes_count:
 		distance_probability[key] = distance_all_nodes_count[key] * 1.0 / total_length
 
@@ -79,7 +93,6 @@ def obtain_matches_with_bipartite_matching(r):
 	matches : list 
 		[[G1_node1,G2_node4,probability],[G1_node1,G2_node4,probability],...]
 	'''
-	print"size of r: %d * %d" % (len(r)/2,len(r)/2)
 	node1 = list(set([item[0] for item in r]))
 	node2 = list(set([item[1] for item in r]))
 	len_node1 = len(node1)
@@ -265,7 +278,7 @@ def calculate_normalized_posterior(G1,G2,candidate_nodes_set_of_G1,candidate_nod
 	Returns
 	-------
 	
-	r_delt_set : List
+	r_delt_set : List2
 		Consists of the matching probability of nodes pairs. The higher the probability value is, the greater similarity they have.
 
 		[[G1_node1,G2_node2,probability],[G1_node3,G2_node1,probability],....]
@@ -281,6 +294,7 @@ def calculate_normalized_posterior(G1,G2,candidate_nodes_set_of_G1,candidate_nod
 	number_of_nodes = nx.number_of_nodes(G1)
 	m = len(s_previous)
 	r_set = []
+	print "r_set size : %d * %d" % (len(candidate_nodes_set_of_G1),len(candidate_nodes_set_of_G2))
 	for u1 in candidate_nodes_set_of_G1:
 		for u2 in candidate_nodes_set_of_G2:
 			posterior_u1 = 0
@@ -309,7 +323,7 @@ def calculate_normalized_posterior(G1,G2,candidate_nodes_set_of_G1,candidate_nod
 				x2_i = finger_of_G2[u2][i]
 				q_x1i_y = 0
 				q_x2i_y = 0
-				for y in range(distance_y):
+				for y in range(1,distance_y+1):
 					if x1_i > y and x1_i < 2*y:
 						q_x1i_y = comb(y,x1_i - y) * ((1 - sample_rate)**(x1_i - y)) * (sample_rate**x1_i)
 						posterior_u1 += probability_of_distance[y] * q_x1i_y 
@@ -353,3 +367,37 @@ def calculate_normalized_posterior(G1,G2,candidate_nodes_set_of_G1,candidate_nod
 		r_delt_set.append([item[0],item[1],temp_r])
 	
 	return r_delt_set
+
+def sample_graph(G, s):
+    newG = nx.Graph()
+    newG.add_edges_from(random.sample(G.edges(), int(len(G.edges())*s)))
+    for edge in newG.edges():
+        newG[edge[0]][edge[1]]['weight'] = 1.0
+    return newG
+
+def main():
+	G1 = communityMatching.load_graph_from_file(sys.argv[1],delimiter = ' ')
+	G2 = communityMatching.load_graph_from_file(sys.argv[2],delimiter = ' ')
+	print "load finish!!"
+	#obtain the 100 nodes
+	degree_of_G1 = G1.degree()
+	degree_of_G2 = G2.degree()
+	degree_of_G1 = sorted(degree_of_G1.items(),key=lambda x:x[1],reverse=True)
+	degree_of_G2 = sorted(degree_of_G2.items(),key=lambda x:x[1],reverse=True)
+
+	candidate_nodes_of_G1 = [item[0] for item in degree_of_G1[:300]]
+	candidate_nodes_of_G2 = [item[0] for item in degree_of_G2[:300]]
+
+	sub_G1 = G1.subgraph(candidate_nodes_of_G1) 
+	sub_G2 = G1.subgraph(candidate_nodes_of_G2) 
+
+	matches = matching_with_beyesian(sub_G1,sub_G2,0.8)
+	length = len(matches)
+	count = 0
+	for item in matches:
+		if item[0] == item[1]:
+			count += 1
+	print "accuratcy rate: %.3f" % (count * 1.0 / length)
+
+if __name__=="__main__":
+    main()

@@ -601,7 +601,35 @@ def obtain_feature_of_cmty(G,SG,nodes_list,throd):
 	midian_cc = obtain_midian_list(cc)
 	feature.append(average_cc)
 	feature.append(midian_cc)
+		
+	return normalize_cmty_feature(feature)
+
+def normalize_cmty_feature(feature):
+	'''
+	Return the normalized feature of community
+	value = (value - MInVale) / (MaxValue - MinValue)
+
+	Parameters
+	----------
+
+	feature : List , elment type: float
+		the feature of the community
+	
+	Returns
+	-------
+
+	normalized_feature : List , elment type: float
+		Return the feature whose elements is normalized
+	'''
+
+	feature = sorted(feature)
+	maxvalue = feature[-1]
+	minvalue = feature[0]
+	temp = maxvalue - minvalue
+	for i in range(len(feature)):
+		feature[i] = (feature[i] - minvalue) * 1.0 / temp 
 	return feature
+		
 
 def obtain_edges_between_cmty(edges_list,s_nodes,d_nodes):
 	edges_number = 0
@@ -1271,7 +1299,7 @@ def obtain_accuracy_rate_in_matched_cmty(left_graph,left_cmty_list,right_graph,r
 		print "%d : %d" % (len(pre_process_list),pre_process_count) 
 		if len(pre_process_list) != 0:
 			print "temp rate: %.2f" % (pre_process_count*1.0 / len(pre_process_list))
-		print "pre-process stage has completed!"
+		print "pre-process and edge credibility stage has completed!"
 
 		#refine stage: refine the remain nodes in the graph with seed list
 		print "refine stage start ...."
