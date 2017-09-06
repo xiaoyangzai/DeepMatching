@@ -8,7 +8,7 @@ from scipy.io import loadmat
 import matplotlib.pyplot as plt
 from sklearn.decomposition import PCA
 import time
-from graph_matching import sample_graph
+from graph_matching import * 
 import sys
 import cnm
 from sklearn.metrics.pairwise import *

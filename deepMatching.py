@@ -9,7 +9,7 @@ from cpdcore import DeformableRegistration, RigidRegistration, AffineRegistratio
 from sklearn.decomposition import PCA
 from node2vec import learn_nodevec
 import time
-from graph_matching import sample_graph
+from graph_matching import *
 import sys
 from deepwalk import __main__ as deepwalk
 from bimatching.sparse_munkres import munkres
