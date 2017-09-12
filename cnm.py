@@ -5,6 +5,8 @@ import matplotlib.pyplot as plt
 import time
 import sys
 import snap
+import community as cmty
+from communityMatching import *
 
 def graph_for_test():
 	TG = snap.TUNGraph.New()
@@ -83,6 +85,43 @@ def community_gn(G):
 		ret_list.append(temp)
 	return ret_list
 
+def community_best_partition_with_limit(G,limit_nodes):
+	finished_list = []
+	unfinished_list = []
+	unfinished_list.append(G.nodes())
+	print "community detection with limit by using best partition starts"
+	sys.stdout.flush()
+	while len(unfinished_list) > 0:
+		result_nodes = []
+		list_nodes = unfinished_list.pop()
+		#create Graph for best partition 
+		if len(list_nodes) != G.number_of_nodes():
+			subG = G.subgraph(list_nodes)
+		else:
+			subG = G
+
+		#community detection with best partiton 
+		subG_partition = cmty.best_partition(subG)
+		#check the number of the nodes in the community
+		subG_cmty_lists = []
+
+		for com in set(subG_partition.values()):
+			temp = [nodes for nodes in subG_partition.keys() if subG_partition[nodes] == com]
+			subG_cmty_lists.append(temp)
+
+		for item in subG_cmty_lists:
+			if(len(item) > limit_nodes):
+				unfinished_list.append(item)
+			else:
+				finished_list.append(item)
+
+		print "the size of finished_list : %d " % len(finished_list)
+		sys.stdout.flush()
+		print "the size of unfinished_list : %d " % len(unfinished_list)
+		sys.stdout.flush()
+	print "community detection with limit by using best partition has finished!!"
+	sys.stdout.flush()
+	return finished_list
 
 def community_cnm_with_limit(G,limit_nodes):
 	finished_list = []
@@ -127,9 +166,10 @@ def community_cnm_with_limit(G,limit_nodes):
 
 def main():
 
-	G = graph_for_test()
-	ret_list = community_cnm(G)
-	
+	nx_G = load_graph_from_file(sys.argv[1],delimiter = ' ')
+	print ("Graph Infomation: nodes %d edges %d\n" % (len(nx_G.nodes()),len(nx_G.edges())))
+	ret_list = community_best_partition_with_limit(nx_G,500)
+	print "number of communities: %d" % (len(ret_list))	
 	#dataset_source = os.path.abspath(sys.argv[1])
 	#log = open("%s.log" % dataset_source,"a")
 	#log.write("time: %s\n" % time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()))

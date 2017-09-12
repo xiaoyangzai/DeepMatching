@@ -178,6 +178,16 @@ def community_detect_graph(G1,G2,detect_method = None):
 		SG2 = transform_networkx_to_snap(G2)
 		return SG1,SG2,SG1_ret_list,SG2_ret_list
 
+	if detect_method == cnm.community_best_partition_with_limit:
+		SG1_ret_list = cnm.community_best_partition_with_limit(G1,2000)
+		SG2_ret_list = cnm.community_best_partition_with_limit(G2,2000)
+
+		print "SG1 community size: %d \t SG2 community size :%d " % (len(SG1_ret_list),len(SG2_ret_list))
+		running_time = time.time() - start_time
+		print "sample finished,running time :%d mins %d secs" % (int(running_time / 60),int(running_time % 60))
+		SG1 = transform_networkx_to_snap(G1)
+		SG2 = transform_networkx_to_snap(G2)
+		return SG1,SG2,SG1_ret_list,SG2_ret_list
 
 	if detect_method == cnm.community_cnm:
 		SG1 = transform_networkx_to_snap(G1)
@@ -554,28 +564,28 @@ def obtain_feature_of_cmty(G,SG,nodes_list,throd):
 	edges_count = sum(degree_list) / 2
 	feature.append(edges_count)
 
-	#3.obtain the max three maxmiun value of degree
+	#3.obtain the max five maxmiun value of degree
 	degree_nodes = sorted(degree_nodes,key=lambda x:x[1],reverse = True)
-	for i in range(int(throd * 0.75)):
+	for i in range(5):
 		feature.append(degree_nodes[i][1])
 
 	#average and midian degree
 	average_degree = float(sum(degree_list))/len(degree_list)	
 	midian_degree = obtain_midian_list(degree_list)
-	feature.append(average_degree)
+	#feature.append(average_degree)
 	feature.append(midian_degree)
 
 	#density of the community
 	d = float(2 * edges_count) / (len(nodes_list) *(len(nodes_list) - 1))
 	feature.append(d)
 	
-	max_degree_nodes_list = []
+	#max_degree_nodes_list = []
 
-	for i in range(int(throd * 0.75)):
-		max_degree_nodes_list.append(degree_nodes[i][0])
-	triangles_count = obtain_triangles_count(G,max_degree_nodes_list)
-	for k in triangles_count:
-		feature.append(triangles_count[k])
+	#for i in range(int(throd * 0.75)):
+	#	max_degree_nodes_list.append(degree_nodes[i][0])
+	#triangles_count = obtain_triangles_count(G,max_degree_nodes_list)
+	#for k in triangles_count:
+	#	feature.append(triangles_count[k])
 
 	#4.calculate betweenness centrality 
 	between_centrality_list = obtain_between_centrality(G,edges)
@@ -585,24 +595,24 @@ def obtain_feature_of_cmty(G,SG,nodes_list,throd):
 	for i in range(int(throd * 0.75)):
 		feature.append(between_centrality_list[i])
 	average_bs = float(sum(between_centrality_list)) / len(between_centrality_list)
-	feature.append(average_bs)
+	#feature.append(average_bs)
 	feature.append(midian_bs)
 
-	#modularity
-	Nodes = snap.TIntV()
-	for nodeId in nodes_list:
-		    Nodes.Add(nodeId)
-	modularity = snap.GetModularity(SG,Nodes) 
-	feature.append(modularity*1000)
+	##modularity
+	#Nodes = snap.TIntV()
+	#for nodeId in nodes_list:
+	#	    Nodes.Add(nodeId)
+	#modularity = snap.GetModularity(SG,Nodes) 
+	#feature.append(modularity*1000)
 
 	#5 calculate clustering coefficients
 	cc = obtain_clustering_coefficient(G,nodes_list)
 	average_cc = float(sum(cc)) / len(cc)
 	midian_cc = obtain_midian_list(cc)
-	feature.append(average_cc)
+	#feature.append(average_cc)
 	feature.append(midian_cc)
 		
-	return normalize_cmty_feature(feature)
+	return feature
 
 def normalize_cmty_feature(feature):
 	'''
@@ -887,7 +897,7 @@ def calculate_common_nodes_between_cmties(s_nodes_list,d_nodes_list):
 	common_nodes_rate = float(common_count)/total_count 
 	return common_nodes_rate, common_nodes_list
 
-def repeated_eavalute_accuracy_by_feature(G1,G2,limit_cmty_nodes = 10,method = euclidean_metric,detect_method = cmty.best_partition):
+def repeated_eavalute_accuracy_by_feature(G1,G2,limit_cmty_nodes = 10,method = euclidean_metric,detect_method = cnm.community_best_partition_with_limit):
 
 	'''
 	Return the matched pairs of communities from the 'G1' and 'G2' and calculate the matching accuracy rate between the communities detected by the method specified by 'detect_methond' 	
