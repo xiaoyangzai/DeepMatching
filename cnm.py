@@ -88,6 +88,7 @@ def community_gn(G):
 def community_best_partition_with_limit(G,limit_nodes):
 	finished_list = []
 	unfinished_list = []
+	total_G_nodes_number =  G.number_of_nodes()
 	unfinished_list.append(G.nodes())
 	print "community detection with limit by using best partition starts"
 	sys.stdout.flush()
@@ -95,7 +96,7 @@ def community_best_partition_with_limit(G,limit_nodes):
 		result_nodes = []
 		list_nodes = unfinished_list.pop()
 		#create Graph for best partition 
-		if len(list_nodes) != G.number_of_nodes():
+		if len(list_nodes) != total_G_nodes_number:
 			subG = G.subgraph(list_nodes)
 		else:
 			subG = G
