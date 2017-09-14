@@ -86,12 +86,15 @@ def community_gn(G):
 	return ret_list
 
 def community_best_partition_with_limit(G,limit_nodes):
+	loop_throd_value = 30
 	finished_list = []
 	unfinished_list = []
 	total_G_nodes_number =  G.number_of_nodes()
 	unfinished_list.append(G.nodes())
 	print "community detection with limit by using best partition starts"
 	sys.stdout.flush()
+	last_remain_len = len(unfinished_list) 
+	remain_loop_count = 0
 	while len(unfinished_list) > 0:
 		result_nodes = []
 		list_nodes = unfinished_list.pop()
@@ -120,6 +123,14 @@ def community_best_partition_with_limit(G,limit_nodes):
 		sys.stdout.flush()
 		print "the size of unfinished_list : %d " % len(unfinished_list)
 		sys.stdout.flush()
+		current_remain_len = len(unfinished_list)
+		if current_remain_len == last_remain_len:
+			remain_loop_count += 1
+			if remain_loop_count >= loop_throd_value:
+				break
+		else:
+			remain_loop_count = 0 
+			last_remain_len = current_remain_len
 	print "community detection with limit by using best partition has finished!!"
 	sys.stdout.flush()
 	return finished_list
