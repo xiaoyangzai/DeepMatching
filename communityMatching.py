@@ -629,6 +629,7 @@ def obtain_degree_distribution_list(degree_nodes,ceil_value):
 		if i > degrees_list[0]:
 			break
 		distribution_list[i] = degrees_list.count(i) 
+	print "number of 0 degree: %d" % distribution_list[0]
 	return distribution_list
 		
 
@@ -654,7 +655,7 @@ def obtain_feature_of_cmty_with_degree_distribution(G,SG,nodes_list,throd,ceil_v
 		13. average cc
 		14. midian cc.
 	'''
-	features_name_list = ["outdegree","nodes","edges","%d th max degree list"%(int(throd*0.75)),"average degree","midian degree","density","%d th triangles"%(int(throd*0.75)),"modularity","%d th triangles"%(int(throd*0.75)),"average bs","midian bs","%d th cc" % (int(throd * 0.75)),"average cc","midian cc"]
+	features_name_list = ["outdegree","nodes","degree[0 - %d] distribution "%(ceil_value),"density","%d th triangles"%(int(throd*0.75)),"%d th triangles"%(int(throd*0.75)),"average bs","midian bs","%d th cc" % (int(throd * 0.75)),"average cc","midian cc"]
 	feature = []	
 	#obtain the outdegree of the community
 	outdegree = obtain_degree_extern_cmty(G,nodes_list)
@@ -668,6 +669,7 @@ def obtain_feature_of_cmty_with_degree_distribution(G,SG,nodes_list,throd,ceil_v
 	#2.1 calculate the degree distribution of the nodes in the community 
 	degree_nodes = sorted(degree_nodes,key=lambda x:x[1],reverse = True)
 	degree_distribution_list = obtain_degree_distribution_list(degree_nodes,ceil_value)
+	print "len degree_distribution list: %d" % len(degree_distribution_list)
 	#add the degree distribution to the feature one by one
 	for item in degree_distribution_list:
 		feature.append(item)
@@ -676,11 +678,11 @@ def obtain_feature_of_cmty_with_degree_distribution(G,SG,nodes_list,throd,ceil_v
 	#2. count the number of edges in community
 	degree_list = [item[1] for item in degree_nodes]
 	edges_count = sum(degree_list) / 2
-	feature.append(edges_count)
+	#feature.append(edges_count)
 
-	##average and midian degree
-	#average_degree = float(sum(degree_list))/len(degree_list)	
-	#midian_degree = obtain_midian_list(degree_list)
+	#average and midian degree
+	average_degree = float(sum(degree_list))/len(degree_list)	
+	midian_degree = obtain_midian_list(degree_list)
 	#feature.append(average_degree)
 	#feature.append(midian_degree)
 
@@ -696,7 +698,7 @@ def obtain_feature_of_cmty_with_degree_distribution(G,SG,nodes_list,throd,ceil_v
 	for k in triangles_count:
 		feature.append(triangles_count[k])
 
-	#4.calculate betweenness centrality 
+	##4.calculate betweenness centrality 
 	between_centrality_list = obtain_between_centrality(G,edges)
 	midian_bs = obtain_midian_list(between_centrality_list)
 
@@ -707,12 +709,12 @@ def obtain_feature_of_cmty_with_degree_distribution(G,SG,nodes_list,throd,ceil_v
 	feature.append(average_bs)
 	feature.append(midian_bs)
 
-	##modularity
-	Nodes = snap.TIntV()
-	for nodeId in nodes_list:
-		    Nodes.Add(nodeId)
-	modularity = snap.GetModularity(SG,Nodes) 
-	feature.append(modularity*1000)
+	#modularity
+	#Nodes = snap.TIntV()
+	#for nodeId in nodes_list:
+	#	    Nodes.Add(nodeId)
+	#modularity = snap.GetModularity(SG,Nodes) 
+	#feature.append(modularity*1000)
 
 	#5 calculate clustering coefficients
 	cc = obtain_clustering_coefficient(G,nodes_list)
@@ -1508,7 +1510,7 @@ def main():
 	df.flush()
 
 	#load graph form file
-	nx_G = load_graph_from_file(sys.argv[1],delimiter = ' ')
+	nx_G = load_graph_from_file(sys.argv[1],delimiter = ',')
 
 	df.write("#Graph Infomation: nodes %d edges %d\n" % (len(nx_G.nodes()),len(nx_G.edges())))
 	df.flush()
@@ -1518,7 +1520,7 @@ def main():
 	rate_list = []
 	dimensions = 160 
 
-	features_name_list = ["outdegree","nodes","edges","%d th max degree list"%(int(throd_value*0.75)),"average degree","midian degree","density","%d th triangles"%(int(throd_value*0.75)),"modularity","%d th triangles"%(int(throd_value*0.75)),"average bs","midian bs","%d th cc" % (int(throd_value * 0.75)),"average cc","midian cc"]
+	features_name_list = ["outdegree","nodes","degree[0 - %d] distribution "%(1000),"density","%d th triangles"%(int(throd_value*0.75)),"%d th triangles"%(int(throd_value*0.75)),"average bs","midian bs","%d th cc" % (int(throd_value * 0.75)),"average cc","midian cc"]
 	for i in range(repeated_count):
 		print "->%d"%i ,
 		sys.stdout.flush()
