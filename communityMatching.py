@@ -103,7 +103,7 @@ def bi_sample_graph(nx_G,sample_rate = 0.8):
 	G2 = sample_graph(nx_G, sample_rate)
 	return G1,G2
 	
-def community_detect_graph(G1,G2,detect_method = None):
+def community_detect_graph(G1,G2,detect_method = None,limit_ceil_cmty = 1000):
 	'''
 	detect community and generate graph with community as nodes and the number edges between communities as weigth between new nodes  
 
@@ -148,7 +148,7 @@ def community_detect_graph(G1,G2,detect_method = None):
 		SG2_ret_list_spectral = graph_spectral.partition_super_cliques(SG2)
 		running_time = time.time() - start_time
 		print "sample finished,running time :%d mins %d secs" % (int(running_time / 60),int(running_time % 60))
-		return SG1_ret_list_cnm,SG2_ret_list_cnm,SG1_ret_list_spectral,SG2_ret_list_spectral
+		return SG1_ret_list_cnm,SG2_ret_list_cnm,SG1_ret_list_spectral,SG2_ret_list_spectral,limit_ceil_cmty
 	if detect_method == cnm.community_cnm_with_limit:
 		SG1 = transform_networkx_to_snap(G1)
 		SG2 = transform_networkx_to_snap(G2)
@@ -159,7 +159,7 @@ def community_detect_graph(G1,G2,detect_method = None):
 		print "SG1 community size: %d \t SG2 community size :%d " % (len(SG1_ret_list),len(SG2_ret_list))
 		running_time = time.time() - start_time
 		print "sample finished,running time :%d mins %d secs" % (int(running_time / 60),int(running_time % 60))
-		return SG1,SG2,SG1_ret_list,SG2_ret_list
+		return SG1,SG2,SG1_ret_list,SG2_ret_list,limit_ceil_cmty 
 	if detect_method == cmty.best_partition:
 		s1_partition = cmty.best_partition(G1)
 		s2_partition = cmty.best_partition(G2)
@@ -176,18 +176,19 @@ def community_detect_graph(G1,G2,detect_method = None):
 		print "sample finished,running time :%d mins %d secs" % (int(running_time / 60),int(running_time % 60))
 		SG1 = transform_networkx_to_snap(G1)
 		SG2 = transform_networkx_to_snap(G2)
-		return SG1,SG2,SG1_ret_list,SG2_ret_list
+		return SG1,SG2,SG1_ret_list,SG2_ret_list,limit_ceil_cmty
 
 	if detect_method == cnm.community_best_partition_with_limit:
-		SG1_ret_list = cnm.community_best_partition_with_limit(G1,1000)
-		SG2_ret_list = cnm.community_best_partition_with_limit(G2,1000)
+		print "ceil size of community : %d " % limit_ceil_cmty
+		SG1_ret_list = cnm.community_best_partition_with_limit(G1,limit_ceil_cmty)
+		SG2_ret_list = cnm.community_best_partition_with_limit(G2,limit_ceil_cmty)
 
 		print "SG1 community size: %d \t SG2 community size :%d " % (len(SG1_ret_list),len(SG2_ret_list))
 		running_time = time.time() - start_time
 		print "sample finished,running time :%d mins %d secs" % (int(running_time / 60),int(running_time % 60))
 		SG1 = transform_networkx_to_snap(G1)
 		SG2 = transform_networkx_to_snap(G2)
-		return SG1,SG2,SG1_ret_list,SG2_ret_list
+		return SG1,SG2,SG1_ret_list,SG2_ret_list,limit_ceil_cmty
 
 	if detect_method == cnm.community_cnm:
 		SG1 = transform_networkx_to_snap(G1)
@@ -202,7 +203,7 @@ def community_detect_graph(G1,G2,detect_method = None):
 	print "SG1 community size: %d \t SG2 community size :%d " % (len(SG1_ret_list),len(SG2_ret_list))
 	print "sample finished,running time :%d mins %d secs" % (int(running_time / 60),int(running_time % 60))
 	
-	return SG1,SG2,SG1_ret_list,SG2_ret_list
+	return SG1,SG2,SG1_ret_list,SG2_ret_list,limit_ceil_cmty
 	 
 	
 def transform_gml_to_networkx(gml_filename):
@@ -528,7 +529,111 @@ def obtain_midian_list(value_list):
 def obtain_triangles_count(G,nodes_list):
 	return nx.triangles(G,nodes_list)
 
-def obtain_feature_of_cmty(G,SG,nodes_list,throd):
+
+
+def obtain_feature_of_cmty(G,SG,nodes_list,throd,ceil_value):
+	'''
+	obtain the feature of the community
+	Return: the community feature
+	Return type: list which consists of:
+		1. outdegree of the community
+		2. number of nodes
+		3. number of edges
+		4. maxmiun degree 1th,2th and 3th
+		5. average degree of community
+		6. midian degree
+		7. density of community
+		8. triangles number of the maximun degree
+		9. modularity
+
+		10. maxmiun bs contained 1th,2th and 3th
+		11. average bs
+		12. midian bs
+		13. average cc
+		14. midian cc.
+	'''
+	features_name_list = ["outdegree","nodes","edges","%d th max degree list"%(int(throd*0.75)),"average degree","midian degree","density","%d th triangles"%(int(throd*0.75)),"modularity","%d th triangles"%(int(throd*0.75)),"average bs","midian bs","%d th cc" % (int(throd * 0.75)),"average cc","midian cc"]
+	feature = []	
+	#obtain the outdegree of the community
+	outdegree = obtain_degree_extern_cmty(G,nodes_list)
+	feature.append(outdegree)
+	#1.calculate number of nodes in community
+	feature.append(len(nodes_list))
+
+	#degree of the nodes
+	degree_nodes,edges = obtain_degree_inter_cmty(G,nodes_list)
+
+	#2. count the number of edges in community
+	degree_list = [item[1] for item in degree_nodes]
+	edges_count = sum(degree_list) / 2
+	feature.append(edges_count)
+
+	#3.obtain the max five maxmiun value of degree
+	degree_nodes = sorted(degree_nodes,key=lambda x:x[1],reverse = True)
+	for i in range(int(throd*0.75)):
+		feature.append(degree_nodes[i][1])
+
+	#average and midian degree
+	average_degree = float(sum(degree_list))/len(degree_list)	
+	midian_degree = obtain_midian_list(degree_list)
+	feature.append(average_degree)
+	feature.append(midian_degree)
+
+	#density of the community
+	d = float(2 * edges_count) / (len(nodes_list) *(len(nodes_list) - 1))
+	feature.append(d)
+	
+	max_degree_nodes_list = []
+
+	for i in range(int(throd * 0.75)):
+		max_degree_nodes_list.append(degree_nodes[i][0])
+	triangles_count = obtain_triangles_count(G,max_degree_nodes_list)
+	for k in triangles_count:
+		feature.append(triangles_count[k])
+
+	#4.calculate betweenness centrality 
+	between_centrality_list = obtain_between_centrality(G,edges)
+	midian_bs = obtain_midian_list(between_centrality_list)
+
+	#max bs 
+	for i in range(int(throd * 0.75)):
+		feature.append(between_centrality_list[i])
+	average_bs = float(sum(between_centrality_list)) / len(between_centrality_list)
+	feature.append(average_bs)
+	feature.append(midian_bs)
+
+	##modularity
+	Nodes = snap.TIntV()
+	for nodeId in nodes_list:
+		    Nodes.Add(nodeId)
+	modularity = snap.GetModularity(SG,Nodes) 
+	feature.append(modularity*1000)
+
+	#5 calculate clustering coefficients
+	cc = obtain_clustering_coefficient(G,nodes_list)
+	for i in range(int(throd * 0.75)):
+		feature.append(cc[i])
+	average_cc = float(sum(cc)) / len(cc)
+	midian_cc = obtain_midian_list(cc)
+	feature.append(average_cc)
+	feature.append(midian_cc)
+		
+	return feature
+
+
+def obtain_degree_distribution_list(degree_nodes,ceil_value):
+	distribution_list = [0 for i in range(ceil_value - 1)] 
+	degrees_list = [i[1] for i in degree_nodes]
+	have_handle = []
+	for i in range(ceil_value - 1):
+		if i > degrees_list[0]:
+			break
+		distribution_list[i] = degrees_list.count(i) 
+	return distribution_list
+		
+
+
+def obtain_feature_of_cmty_with_degree_distribution(G,SG,nodes_list,throd,ceil_value):
 	'''
 	obtain the feature of the community
 	Return: the community feature
@@ -560,22 +665,24 @@ def obtain_feature_of_cmty(G,SG,nodes_list,throd):
 
 	#degree of the nodes
 	degree_nodes,edges = obtain_degree_inter_cmty(G,nodes_list)
+	#2.1 calculate the degree distribution of the nodes in the community 
+	degree_nodes = sorted(degree_nodes,key=lambda x:x[1],reverse = True)
+	degree_distribution_list = obtain_degree_distribution_list(degree_nodes,ceil_value)
+	#add the degree distribution to the feature one by one
+	for item in degree_distribution_list:
+		feature.append(item)
+
 
 	#2. count the number of edges in community
 	degree_list = [item[1] for item in degree_nodes]
 	edges_count = sum(degree_list) / 2
 	feature.append(edges_count)
 
-	#3.obtain the max five maxmiun value of degree
-	degree_nodes = sorted(degree_nodes,key=lambda x:x[1],reverse = True)
-	for i in range(int(throd*0.75)):
-		feature.append(degree_nodes[i][1])
-
-	#average and midian degree
-	average_degree = float(sum(degree_list))/len(degree_list)	
-	midian_degree = obtain_midian_list(degree_list)
-	feature.append(average_degree)
-	feature.append(midian_degree)
+	##average and midian degree
+	#average_degree = float(sum(degree_list))/len(degree_list)	
+	#midian_degree = obtain_midian_list(degree_list)
+	#feature.append(average_degree)
+	#feature.append(midian_degree)
 
 	#density of the community
 	d = float(2 * edges_count) / (len(nodes_list) *(len(nodes_list) - 1))
@@ -710,8 +817,7 @@ def merge_small_community(G,rest_small_cmty,new_cmty_list):
 	print "discard %d small communitis" % discard_count
 	print "merge small community....ok!!"
 	return new_cmty_list
-
-def obtain_cmty_feature_array(G,SG,cmty_list,throd_value):
+def obtain_cmty_feature_array(G,SG,cmty_list,throd_value,ceil_value):
 	'''
 	Return the features of communities in the 'cmty_list' in graph 'G'
 
@@ -768,7 +874,8 @@ def obtain_cmty_feature_array(G,SG,cmty_list,throd_value):
 		print "cmty: %d" % loop_index
 		print "length: %d" % len(cmty) 
 		loop_index += 1
-		temp = obtain_feature_of_cmty(G,SG,cmty,throd_value)
+		#temp = obtain_feature_of_cmty(G,SG,cmty,throd_value,ceil_value)
+		temp = obtain_feature_of_cmty_with_degree_distribution(G,SG,cmty,throd_value,ceil_value)
 		feature.append(temp)
 		sys.stdout.flush()
 	print "obtain cmty feature array finished"
@@ -954,11 +1061,11 @@ def repeated_eavalute_accuracy_by_feature(G1,G2,limit_cmty_nodes = 10,method = e
 
 	# The type of SG1 and SG2 is the type Snap needs 
 	# SG1_ret_list and SG2_ret_list is the result of the detection of graph
-	SG1,SG2,SG1_ret_list,SG2_ret_list = community_detect_graph(G1,G2,detect_method = detect_method)
+	SG1,SG2,SG1_ret_list,SG2_ret_list,limit_ceil_cmty = community_detect_graph(G1,G2,detect_method = detect_method)
 
 	# The SG1_rest_small_cmty, same as SG2_rest_small_cmty, holds the communities in which the nodes is lower than the throd. The SG1_new_cmty_list just includes the eligible communities.
-	SG1_eligible_cmty_list,SG1_features_list = obtain_cmty_feature_array(G1,SG1,SG1_ret_list,limit_cmty_nodes)
-	SG2_eligible_cmty_list,SG2_features_list = obtain_cmty_feature_array(G2,SG2,SG2_ret_list,limit_cmty_nodes)
+	SG1_eligible_cmty_list,SG1_features_list = obtain_cmty_feature_array(G1,SG1,SG1_ret_list,limit_cmty_nodes,limit_ceil_cmty)
+	SG2_eligible_cmty_list,SG2_features_list = obtain_cmty_feature_array(G2,SG2,SG2_ret_list,limit_cmty_nodes,limit_ceil_cmty)
 	score_list = obtain_score_between_features(SG1_features_list,SG2_features_list,method = method)
 
 	rate,left_Graph,right_Graph,left_cmty_list,right_cmty_list,matched_index = calculate_accuracy_rate_by_feature(G1,SG1_eligible_cmty_list,G2,SG2_eligible_cmty_list,score_list,SG1_features_list,SG2_features_list)
@@ -1387,7 +1494,7 @@ def main():
 	else:
 		method_select = euclidean_metric
 
-	filename = "other_cmty_matching_with_sample_%.2f_repeat_%d_cmty_throd_%d.txt"%(float(sys.argv[2]),repeated_count,throd_value)
+	filename = "%s_cmty_matching_with_sample_%.2f_repeat_%d_cmty_throd_%d.txt"%(sys.argv[6],float(sys.argv[2]),repeated_count,throd_value)
 	print "result will be recorded in %s"%filename
 	df = open(filename,"w")
 	df.write("########################################################################\n")
