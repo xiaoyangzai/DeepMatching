@@ -103,7 +103,7 @@ def bi_sample_graph(nx_G,sample_rate = 0.8):
 	G2 = sample_graph(nx_G, sample_rate)
 	return G1,G2
 	
-def community_detect_graph(G1,G2,detect_method = None,limit_ceil_cmty = 800):
+def community_detect_graph(G1,G2,detect_method = None,limit_ceil_cmty = 1000):
 	'''
 	detect community and generate graph with community as nodes and the number edges between communities as weigth between new nodes  
 
@@ -609,7 +609,6 @@ def obtain_feature_of_cmty(G,SG,nodes_list,throd,ceil_value):
 	#4.calculate betweenness centrality 
 	between_centrality_list = obtain_between_centrality(G,edges)
 	midian_bs = obtain_midian_list(between_centrality_list)
-	print "======"
 
 
 	#max bs 
@@ -719,7 +718,7 @@ def obtain_feature_of_cmty_with_degree_distribution(G,SG,nodes_list,throd,ceil_v
 	between_centrality_list = obtain_between_centrality(G,edges)
 	between_centrality_list = sorted(between_centrality_list,reverse=True)
 	midian_bs = obtain_midian_list(between_centrality_list)
-	bs_distribution_list = obtain_clustering_coefficient_distribution(between_centrality_list,each_step = 0.01)
+	bs_distribution_list = obtain_clustering_coefficient_distribution(between_centrality_list,each_step = 0.0005)
 	for item in bs_distribution_list:
 		feature.append(item)
 	print "bs distribution list"
@@ -732,16 +731,10 @@ def obtain_feature_of_cmty_with_degree_distribution(G,SG,nodes_list,throd,ceil_v
 	feature.append(average_bs)
 	feature.append(midian_bs)
 
-	#modularity
-	#Nodes = snap.TIntV()
-	#for nodeId in nodes_list:
-	#	    Nodes.Add(nodeId)
-	#modularity = snap.GetModularity(SG,Nodes) 
-	#feature.append(modularity*1000)
 
 	#5 calculate clustering coefficients
 	cc = obtain_clustering_coefficient(G,nodes_list)
-	cc_distribution_list = obtain_clustering_coefficient_distribution(cc,0.05)
+	cc_distribution_list = obtain_clustering_coefficient_distribution(cc,0.005)
 	print "cc distribution list"
 	print cc_distribution_list
 	for item in cc_distribution_list:
@@ -750,7 +743,6 @@ def obtain_feature_of_cmty_with_degree_distribution(G,SG,nodes_list,throd,ceil_v
 		feature.append(cc[i])
 	average_cc = float(sum(cc)) / len(cc)
 	midian_cc = obtain_midian_list(cc)
-
 	feature.append(average_cc)
 	feature.append(midian_cc)
 		
@@ -1167,17 +1159,21 @@ def calculate_accuracy_rate_by_feature(SG1,SG1_new_cmty,SG2,SG2_new_cmty,score_l
 
 	loop_count = len(big_new_cmty)	
 	small_cmty_count = len(small_new_cmty)
+	have_matched_big_new_cmty = {} 
 	for i in range(0,loop_count):
 		print "**************************************************************"
 		#obtain the similarity list of ith community with all of the other community
 		similarity_list =[(index,score_list[i][index]) for index in range(0,small_cmty_count)]
 		#sort the similiarity of ith community such that obtain the most similar one
 		similarity_list = sorted(similarity_list,key=lambda x:x[1])
+		
+		print "%d pairs have been matched!!" % len(have_matched_big_new_cmty)		
+		if len(have_matched_big_new_cmty) == small_cmty_count:
+			break
 
 		print "cmty: %d" % i
 		print "similarity list: ",
 		print similarity_list
-		first_flag =True 
 
 		while len(similarity_list) > 0:
 			#obtain the similiarity list of the best one similiaried with the ith cmty from big community list
@@ -1186,16 +1182,18 @@ def calculate_accuracy_rate_by_feature(SG1,SG1_new_cmty,SG2,SG2_new_cmty,score_l
 			print "best score: %.5f" % best_score
 			print "C index: %d"% C_index
 
-			#stored the index of the  first matched community
-			if first_flag:
-				first_flag = False
-				first_matched_index = C_index
-
 			similarity_list.pop(0)
 			#obtain the community which is most similar to the community specified by C_index
 			dest_similarity_list = []	
+			dest_cmty_index = 0
 			for item in score_list:
+				#if dest_cmty_index had matched before
+				if dest_cmty_index in have_matched_big_new_cmty.keys() and have_matched_big_new_cmty[dest_cmty_index] != C_index:
+					dest_cmty_index += 1
+					continue
 				dest_similarity_list.append(item[C_index])
+				dest_cmty_index += 1
+
 			dest_similarity_list = sorted(dest_similarity_list)
 			#print dest_similarity_list
 			if best_score > dest_similarity_list[0]:
@@ -1203,29 +1201,13 @@ def calculate_accuracy_rate_by_feature(SG1,SG1_new_cmty,SG2,SG2_new_cmty,score_l
 			break
 		#no matched if length of the similiarity list is zero,guasee the firsted matched community is the best one
 		if len(similarity_list) == 0:
-			#print "guasee matched: %d  ==>  %d" %(i,first_matched_index)
-			#print "socre: %.5f" % score_list[i][first_matched_index]
-			#print "cmty: %d" % i
-			#print big_new_cmty[i][:10]
-			#print big_feature[i]
-			#print "cmty: %d" % first_matched_index 
-			#print small_new_cmty[first_matched_index][:10]
-			#print small_feature[first_matched_index]
-			##calculate the common node between ith community of SG1 and first matched community of SG2
-			#temp_rate,common_nodes_list = calculate_common_nodes_between_cmties(big_new_cmty[i],small_new_cmty[first_matched_index]) 
-			#matched_index.append([i,first_matched_index,len(common_nodes_list),temp_rate])
-			#if temp_rate >= throd_value:
-			#	matched_count += 1
-			#	print "matched count: %d" % matched_count
-			#	print "mapping successful!"
-			#else:
-			#	print "mapping failed"
-			#	unmatched_count += 1
-			#	print "unmatched count: %d" % unmatched_count
-			#unmatched_count += 1
+			unmatched_count += 1
 			continue
 		print "best candidate: %d" % C_index
 		temp_rate,common_nodes_list = calculate_common_nodes_between_cmties(big_new_cmty[i],small_new_cmty[C_index]) 
+
+		#add the index of big cmty 
+		have_matched_big_new_cmty[i] = C_index
 		matched_index.append([i,C_index,len(common_nodes_list),temp_rate])
 		print "rate: %.4f" % temp_rate
 		if temp_rate >= throd_value:
@@ -1241,6 +1223,7 @@ def calculate_accuracy_rate_by_feature(SG1,SG1_new_cmty,SG2,SG2_new_cmty,score_l
 	print "total count: %d" % loop_count
 	print "accuracy rate: %.5f" % accuracy_rate
 	return accuracy_rate,big_G,small_G,big_new_cmty,small_new_cmty,matched_index
+
 
 def deepwalk_map_prob_maxtrix(small_G,long_G,dimensions):
 	'''
