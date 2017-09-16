@@ -541,12 +541,12 @@ def obtain_midian_list(value_list):
 
 	return midian
 	
-def obtain_triangles_count(G,nodes_list):
+def obtain_triangles_count(G,nodes_list=None):
 	return nx.triangles(G,nodes_list)
 
 
 
-def obtain_feature_of_cmty(G,SG,nodes_list,throd,ceil_value):
+def obtain_feature_of_cmty(G,SG,nodes_list,throd):
 	'''
 	obtain the feature of the community
 	Return: the community feature
@@ -678,43 +678,38 @@ def obtain_feature_of_cmty_with_degree_distribution(G,SG,nodes_list,throd,ceil_v
 	feature.append(outdegree)
 
 	#1.calculate number of nodes in community
-	feature.append(len(nodes_list))
+	#feature.append(len(nodes_list))
 
-	#degree of the nodes
+	##degree of the nodes
 	degree_nodes,edges = obtain_degree_inter_cmty(G,nodes_list)
 	#2.1 calculate the degree distribution of the nodes in the community 
 	degree_nodes = sorted(degree_nodes,key=lambda x:x[1],reverse = True)
 	degree_distribution_list = obtain_degree_distribution_list(degree_nodes,ceil_value)
-	print "len degree_distribution list: %d" % len(degree_distribution_list)
 	#add the degree distribution to the feature one by one
 	for item in degree_distribution_list:
 		feature.append(item)
 
-
 	#2. count the number of edges in community
 	degree_list = [item[1] for item in degree_nodes]
 	edges_count = sum(degree_list) / 2
-	feature.append(edges_count)
-
-	#average and midian degree
-	average_degree = float(sum(degree_list))/len(degree_list)	
-	midian_degree = obtain_midian_list(degree_list)
-	feature.append(average_degree)
-	feature.append(midian_degree)
 
 	#density of the community
 	d = float(2 * edges_count) / (len(nodes_list) *(len(nodes_list) - 1))
 	feature.append(d)
 	
-	#max_degree_nodes_list = []
+	max_degree_nodes_list = []
 
 	#for i in range(int(throd * 0.75)):
-	#	max_degree_nodes_list.append(degree_nodes[i][0])
-	#triangles_count = obtain_triangles_count(G,max_degree_nodes_list)
-	#for k in triangles_count:
-	#	feature.append(triangles_count[k])
+	triangles_count = obtain_triangles_count(G,nodes_list)
+	triangles = [[key,triangles_count[key]] for key in triangles_count]
+	triangles = sorted(triangles,key=lambda x:x[1],reverse = True)
+	triangles_distribution = obtain_degree_distribution_list(triangles,ceil_value)
+	print "triangles distribution"
+	print triangles_distribution
+	for k in triangles_distribution:
+		feature.append(k)
 
-	##4.calculate betweenness centrality 
+	#4.calculate betweenness centrality 
 	#between_centrality_list = obtain_between_centrality(G,edges)
 	#between_centrality_list = sorted(between_centrality_list,reverse=True)
 	#midian_bs = obtain_midian_list(between_centrality_list)
@@ -722,9 +717,6 @@ def obtain_feature_of_cmty_with_degree_distribution(G,SG,nodes_list,throd,ceil_v
 	#bs_distribution_list = obtain_clustering_coefficient_distribution(between_centrality_list,each_step = 0.0005)
 	#for item in bs_distribution_list:
 	#	feature.append(item)
-	#print "bs distribution list"
-	#print bs_distribution_list
-
 	##max bs 
 	#for i in range(int(throd * 0.75)):
 	#	feature.append(between_centrality_list[i])
@@ -735,7 +727,7 @@ def obtain_feature_of_cmty_with_degree_distribution(G,SG,nodes_list,throd,ceil_v
 
 	#5 calculate clustering coefficients
 	#cc = obtain_clustering_coefficient(G,nodes_list)
-	#cc_distribution_list = obtain_clustering_coefficient_distribution(cc,0.005)
+	#cc_distribution_list = obtain_clustering_coefficient_distribution(cc,0.001)
 	#print "cc distribution list"
 	#print cc_distribution_list
 	#for item in cc_distribution_list:
@@ -898,6 +890,7 @@ def obtain_cmty_feature_array(G,SG,cmty_list,throd_value,ceil_value):
 		print "cmty: %d" % loop_index
 		print "length: %d" % len(cmty) 
 		loop_index += 1
+		#temp = obtain_feature_of_cmty(G,SG,cmty,throd_value)
 		temp = obtain_feature_of_cmty_with_degree_distribution(G,SG,cmty,throd_value,ceil_value)
 		feature.append(temp)
 		sys.stdout.flush()
@@ -1498,26 +1491,26 @@ def plot_z_score(z_score_list):
 
 def main():
 
-	if len(sys.argv) < 8:
-		print "usage: ./deepmatching_for_cmty.py [filename_graph_G1] [filename_graph_G2] [sample rate]  [community size threshold] [loop count] [distance function = 1] [remarks]"
+	if len(sys.argv) < 7:
+		print "usage: ./deepmatching_for_cmty.py [filename] [sample rate]  [community size threshold] [loop count] [distance function = 1] [remarks]"
 		return -1
 
-	sample_rate = float(sys.argv[3])
-	throd_value = int(sys.argv[4])
-	repeated_count = int(sys.argv[5])
-	if(sys.argv[6] == "1"):
+	sample_rate = float(sys.argv[2])
+	throd_value = int(sys.argv[3])
+	repeated_count = int(sys.argv[4])
+	if(sys.argv[5] == "1"):
 		method_select = euclidean_distance
 	else:
 		method_select = euclidean_metric
 
-	filename = "%s_cmty_matching_with_sample_%.2f_repeat_%d_cmty_throd_%d.txt"%(sys.argv[7],float(sys.argv[3]),repeated_count,throd_value)
+	filename = "%s_cmty_matching_with_sample_%.2f_repeat_%d_cmty_throd_%d.txt"%(sys.argv[6],float(sys.argv[2]),repeated_count,throd_value)
 	print "result will be recorded in %s"%filename
 	df = open(filename,"w")
 	df.write("########################################################################\n")
 	df.write("#date: %s\n" % ti.strftime("%Y-%m-%d %H:%M:%S",ti.localtime(ti.time())))
-	df.write("#remarks: %s\n" % sys.argv[7])
-	df.write("#dataset: %s & %s\n" % (sys.argv[1],sys.argv[2]))
-	df.write("#sample: %.2f\n" % (float(sys.argv[3])))
+	df.write("#remarks: %s\n" % sys.argv[6])
+	df.write("#dataset: %s\n" % (sys.argv[1]))
+	df.write("#sample: %.2f\n" % (float(sys.argv[2])))
 	df.write("#similarity function: %s\n" % "euclidean_distance")
 	df.write("#throd of the community: %d\n" % throd_value)
 	df.write("#repeated loop count: %d\n" % repeated_count)
@@ -1525,13 +1518,11 @@ def main():
 
 	##load graph form file
 	print "Loading the graph from file....."
-	G1 = nx.read_edgelist(sys.argv[1],nodetype=int,delimiter=' ')
-	print "graph G1 info: %d nodes \t %d edges" %(len(G1.nodes()),len(G1.edges()))
-	G2 = nx.read_edgelist(sys.argv[2],nodetype=int,delimiter=' ')
-	print "graph G2 info: %d nodes \t %d edges" %(len(G2.nodes()),len(G2.edges()))
+	nx_G = load_graph_from_file(sys.argv[1],delimiter = ' ')
+	print "graph  info: %d-nodes %d-edges" %(len(nx_G.nodes()),len(nx_G.edges()))
 	print "Loading the graph from file.....ok!!"
 
-	df.write("#Graph Infomation: G1	%d-nodes %d-edges and G2 %d-nodes %d-edges\n" % (len(G1.nodes()),len(G1.edges()),len(G2.nodes()),len(G2.edges())))
+	df.write("#Graph Infomation: G1	%d-nodes %d-edges\n" % (len(nx_G.nodes()),len(nx_G.edges())))
 	df.flush()
 
 	print "begin to execute the 5 stage....."	
@@ -1544,7 +1535,7 @@ def main():
 	for i in range(repeated_count):
 		print "->%d"%i ,
 		sys.stdout.flush()
-
+		G1,G2 = bi_sample_graph(nx_G,sample_rate)
 		#obtain the pairs of index of the matched communities
 		old_rate,left_graph,right_graph,left_cmty_list,right_cmty_list,matched_index,SG1_features_list,SG2_features_list = repeated_eavalute_accuracy_by_feature(G1,G2,limit_cmty_nodes = throd_value)
 		df.write("# %ith loop:\n"%i)
