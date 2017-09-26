@@ -17,6 +17,7 @@ import deepMatching as dm
 from itertools import izip
 from credibility import *
 from refinement import *
+from bimatching.sparse_munkres import munkres
 
 def transform_snap_to_networkx(SG):
 	'''
@@ -677,14 +678,16 @@ def obtain_feature_of_cmty_with_degree_distribution(G,SG,nodes_list,throd,ceil_v
 	outdegree = obtain_degree_extern_cmty(G,nodes_list)
 	feature.append(outdegree)
 
-	#1.calculate number of nodes in community
-	#feature.append(len(nodes_list))
-
-	##degree of the nodes
+	#calculate the degree distribution of the nodes
 	degree_nodes,edges = obtain_degree_inter_cmty(G,nodes_list)
 	#2.1 calculate the degree distribution of the nodes in the community 
 	degree_nodes = sorted(degree_nodes,key=lambda x:x[1],reverse = True)
-	degree_distribution_list = obtain_degree_distribution_list(degree_nodes,ceil_value)
+
+	max_nodes_list = []
+	for i in range(throd):
+		max_nodes_list.append(degree_nodes[i][0])
+	
+	degree_distribution_list = obtain_degree_distribution_list(degree_nodes[:throd],ceil_value)
 	#add the degree distribution to the feature one by one
 	for item in degree_distribution_list:
 		feature.append(item)
@@ -697,47 +700,27 @@ def obtain_feature_of_cmty_with_degree_distribution(G,SG,nodes_list,throd,ceil_v
 	d = float(2 * edges_count) / (len(nodes_list) *(len(nodes_list) - 1))
 	feature.append(d)
 	
-	max_degree_nodes_list = []
-
-	#for i in range(int(throd * 0.75)):
-	triangles_count = obtain_triangles_count(G,nodes_list)
+	#3 calculate the triangles distribution
+	triangles_count = obtain_triangles_count(G,max_nodes_list)
 	triangles = [[key,triangles_count[key]] for key in triangles_count]
 	triangles = sorted(triangles,key=lambda x:x[1],reverse = True)
 	triangles_distribution = obtain_degree_distribution_list(triangles,ceil_value)
-	print "triangles distribution"
-	print triangles_distribution
 	for k in triangles_distribution:
 		feature.append(k)
 
 	#4.calculate betweenness centrality 
-	#between_centrality_list = obtain_between_centrality(G,edges)
-	#between_centrality_list = sorted(between_centrality_list,reverse=True)
-	#midian_bs = obtain_midian_list(between_centrality_list)
+	between_centrality_list = obtain_between_centrality(G,edges)
+	between_centrality_list = sorted(between_centrality_list,reverse=True)
 
-	#bs_distribution_list = obtain_clustering_coefficient_distribution(between_centrality_list,each_step = 0.0005)
-	#for item in bs_distribution_list:
-	#	feature.append(item)
-	##max bs 
-	#for i in range(int(throd * 0.75)):
-	#	feature.append(between_centrality_list[i])
-	#average_bs = float(sum(between_centrality_list)) / len(between_centrality_list)
-	#feature.append(average_bs)
-	#feature.append(midian_bs)
-
+	bs_distribution_list = obtain_clustering_coefficient_distribution(between_centrality_list,each_step = 0.001)
+	for item in bs_distribution_list:
+		feature.append(item)
 
 	#5 calculate clustering coefficients
-	#cc = obtain_clustering_coefficient(G,nodes_list)
-	#cc_distribution_list = obtain_clustering_coefficient_distribution(cc,0.001)
-	#print "cc distribution list"
-	#print cc_distribution_list
-	#for item in cc_distribution_list:
-	#	feature.append(item)
-	#for i in range(int(throd * 0.75)):
-	#	feature.append(cc[i])
-	#average_cc = float(sum(cc)) / len(cc)
-	#midian_cc = obtain_midian_list(cc)
-	#feature.append(average_cc)
-	#feature.append(midian_cc)
+	cc = obtain_clustering_coefficient(G,max_nodes_list)
+	cc_distribution_list = obtain_clustering_coefficient_distribution(cc,0.001)
+	for item in cc_distribution_list:
+		feature.append(item)
 		
 	return feature
 
@@ -1086,7 +1069,7 @@ def repeated_eavalute_accuracy_by_feature(G1,G2,limit_cmty_nodes = 10,method = e
 
 	rate,left_Graph,right_Graph,left_cmty_list,right_cmty_list,matched_index = calculate_accuracy_rate_by_feature(G1,SG1_eligible_cmty_list,G2,SG2_eligible_cmty_list,score_list,SG1_features_list,SG2_features_list)
 
-	return rate,left_Graph,right_Graph,left_cmty_list,right_cmty_list,matched_index,SG1_features_list,SG2_features_list
+	return rate,left_Graph,right_Graph,left_cmty_list,right_cmty_list,matched_index,SG1_features_list,SG2_features_list,score_list
 
 
 def calculate_accuracy_rate_by_feature(SG1,SG1_new_cmty,SG2,SG2_new_cmty,score_list,SG1_feature,SG2_feature,throd_value = 0.75):
@@ -1367,8 +1350,8 @@ def obtain_accuracy_rate_in_matched_cmty(left_graph,left_cmty_list,right_graph,r
 		original_size = len(left_cmty_list[left_index]) if len(left_cmty_list[left_index]) <= len(right_cmty_list[right_index]) else len(right_cmty_list[right_index])
 
 		print "%i -> %i common nodes: %d" % (left_index,right_index,common_nodes)
-		if common_nodes == 0:
-			continue
+		#if common_nodes == 0:
+		#	continue
 		#tansfrom the community to the graph
 		G1 = left_graph.subgraph(left_cmty_list[left_index])
 		G2 = right_graph.subgraph(right_cmty_list[right_index])
@@ -1397,29 +1380,8 @@ def obtain_accuracy_rate_in_matched_cmty(left_graph,left_cmty_list,right_graph,r
 				deepwalk_common_nodes_list.append(item[0])
 		if deepwalk_real_seed_count == 0:
 			print "no one is right in the matched obtained by deepwalk"
-			pre_process_list = []
-			pre_process_count = 0
-			pre_process_rate = 0.0
-			refine_match_nodes = []
-			refine_real_matched_nodes_count = 0
-			refine_rate = 0.0
-			z_score_list.append(0)
-
-			pre_process_seed_rate.append(pre_process_rate)
-			pre_process_seed_nodes_list.append(pre_process_list)
-			print "pre-process stage accuracy rate: %.2f" % pre_process_rate
-			print "pre-process stage has completed!"
-
-			refine_nodes_rate.append(refine_rate)
-			refine_nodes_matches_list.append(refine_match_nodes) 
-			print "refine stage accuracy rate: %.2f" % refine_rate
-			print "refine stage has completed!"
-
-			matched_nodes_number.append([original_size,common_nodes,deepwalk_matched_nodes_size,deepwalk_real_seed_count,len(pre_process_list),pre_process_count,len(refine_match_nodes),refine_real_matched_nodes_count])
-			continue
-
 		#pre-process stage: seed nodes detection
-		pre_process_list,pre_process_count,pre_process_rate,z_score = obtain_seed_with_edges_credibility(matches,small_G,long_G,deepwalk_common_nodes_list)
+		pre_process_list,pre_process_count,pre_process_rate,z_score = obtain_seed_with_edges_credibility(matches,small_G,long_G,deepwalk_common_nodes_list,left_index,right_index)
 
 		pre_process_seed_rate.append(pre_process_rate)
 		pre_process_seed_nodes_list.append(pre_process_list)
@@ -1516,7 +1478,7 @@ def main():
 	df.write("#repeated loop count: %d\n" % repeated_count)
 	df.flush()
 
-	##load graph form file
+	#load graph form file
 	print "Loading the graph from file....."
 	nx_G = load_graph_from_file(sys.argv[1],delimiter = ' ')
 	print "graph  info: %d-nodes %d-edges" %(len(nx_G.nodes()),len(nx_G.edges()))
@@ -1537,7 +1499,7 @@ def main():
 		sys.stdout.flush()
 		G1,G2 = bi_sample_graph(nx_G,sample_rate)
 		#obtain the pairs of index of the matched communities
-		old_rate,left_graph,right_graph,left_cmty_list,right_cmty_list,matched_index,SG1_features_list,SG2_features_list = repeated_eavalute_accuracy_by_feature(G1,G2,limit_cmty_nodes = throd_value)
+		old_rate,left_graph,right_graph,left_cmty_list,right_cmty_list,matched_index,SG1_features_list,SG2_features_list,score_list = repeated_eavalute_accuracy_by_feature(G1,G2,limit_cmty_nodes = throd_value)
 		df.write("# %ith loop:\n"%i)
 		#record the community mapping result
 		df.write("#Communities mapped results[source cmty id,dest cmty id,common nodes number]: \n")
@@ -1546,14 +1508,8 @@ def main():
 		for item in matched_index:
 			if(item[3] > 0):
 				right_mapped_count += 1
-				df.write("%d-%d-%d-%0.4f "%(item[0],item[1],item[2],item[3]));
-				df.flush()
-		df.write("\n")
-
-		for item in matched_index:
-			if(item[3] == 0):
-				df.write("%d-%d-%d-%0.4f "%(item[0],item[1],item[2],item[3]));
-				df.flush()
+			df.write("%d-%d-%d-%0.4f "%(item[0],item[1],item[2],item[3]));
+			df.flush()
 		df.write("\n")
 		df.write("#real matched: %d\n"%right_mapped_count)
 		df.write("#miss matched: %d\n"%(total_mapped_count - right_mapped_count))
@@ -1561,12 +1517,27 @@ def main():
 
 		 
 		#record the small commnuity size
-		df.write("#G1 cmty total number: %d\n"%len(left_cmty_list));
-		df.write("#G1 cmty length distribution: \n")
+		df.write("#left graph cmty total number: %d\n"%len(left_cmty_list));
+		df.write("#left graph cmty length distribution: \n")
 		for index in left_cmty_list:
 			df.write("%i\t" % (len(index)))
 			df.flush()
 		df.write("\n")
+
+		df.write("#right graph cmty total number: %d\n"%len(right_cmty_list));
+		df.write("#right graph cmty length distribution: \n")
+		for index in right_cmty_list:
+			df.write("%i\t" % (len(index)))
+			df.flush()
+		df.write("\n")
+
+		df.write("#cmty similarity between the left and right graph: \n")
+		for item in score_list:
+			df.write("index %d: "% score_list.index(item))
+			for score in item:
+				df.write("%f "% float(score))
+			df.write("\n")
+		df.write("#################################################\n")
 
 		#record the features of the each community
 		df.write("#features name list: \n")
@@ -1575,7 +1546,7 @@ def main():
 			df.flush()
 		df.write("\n")
 
-		df.write("#G1 cmty features: \n")
+		df.write("#left graph cmty features: \n")
 		cmty_index = 0
 
 		for cmty_index in range(len(SG1_features_list)):
@@ -1584,22 +1555,7 @@ def main():
 				df.write("%.5f\t" % item)
 				df.flush()
 			df.write("\n")
-
-
-		df.write("#G2 cmty total number: %d\n"%len(right_cmty_list));
-		df.write("#G2 cmty length distribution: \n")
-		for index in right_cmty_list:
-			df.write("%i\t" % (len(index)))
-			df.flush()
-		df.write("\n")
-
-		df.write("#features name list: \n")
-		for item in features_name_list:
-			df.write("%s\t"%item);
-			df.flush()
-		df.write("\n")
-
-		df.write("#G2 cmty features: \n")
+		df.write("#right graph cmty features: \n")
 		cmty_index = 0
 		for cmty_index in range(len(SG2_features_list)):
 			df.write("#community %d: "% cmty_index)
@@ -1610,45 +1566,42 @@ def main():
 
 		rate_list.append(old_rate)
 		sum_acc += old_rate
+
+
 	   
-	   ## the dimensions of feature of the nodes obtained by deepwalk 
-	   #matched_nummber_nodes,pre_process_seed_rate,pre_process_seed_nodes_list,refine_rate,refine_match_nodes_list,z_score_list = obtain_accuracy_rate_in_matched_cmty(left_graph,left_cmty_list,right_graph,right_cmty_list,matched_index,dimensions) 
-
-	   #df.write("#dimensions: %d\n" % dimensions)
-	   #df.write("#deepwalk results[cmty-deepwalk-seed]: ")
-	   #for item in matched_nummber_nodes:
-	   #	df.write("%d-%d-%d-%d-%d-%d-%d-%d " % (item[0],item[1],item[2],item[3],item[4],item[5],item[6],item[7]))
-	   #	df.flush()
-	   #df.write('\n')
-	   #df.flush()
-	   ##finding the seed nodes and calculating the accuracy rate
-	   #df.write("#pre-process stage seed accuracy rate: ")
-	   #for item in pre_process_seed_rate:
-	   #	df.write(" %.5f" % item)
-	   #	df.flush()
-	   #df.write('\n')
-	   #df.flush()
-
-
-
-	   #df.write("#refine stage seed accuracy rate: ")
-	   #for item in refine_rate:
-	   #	df.write(" %.5f" % item)
-	   #	df.flush()
-	   #df.write('\n')
-	   #df.flush()
-
-	   #plot_z_score(z_score_list)
-	   	
-	df.write("#accuracy rate array of matched communities pairs: ")
-	df.flush()
-	for item in rate_list:
-		df.write("%.4f " % item)
+	   	## the dimensions of feature of the nodes obtained by deepwalk 
+	   	matched_nummber_nodes,pre_process_seed_rate,pre_process_seed_nodes_list,refine_rate,refine_match_nodes_list,z_score_list = obtain_accuracy_rate_in_matched_cmty(left_graph,left_cmty_list,right_graph,right_cmty_list,matched_index,dimensions)
+	   	df.write("#dimensions: %d\n" % dimensions)
+	   	df.write("#deepwalk results[cmty-deepwalk-seed]: ")
+	   	for item in matched_nummber_nodes:
+	  		df.write("%d-%d-%d-%d-%d-%d-%d-%d " % (item[0],item[1],item[2],item[3],item[4],item[5],item[6],item[7]))
 		df.flush()
-	df.write("\n")
-	df.write("#arverage: %.5f\n"% (sum_acc / repeated_count))
-	df.write("########################################################################\n")
-	df.flush()
+	   	df.write('\n')
+	   	df.flush()
+	   	#finding the seed nodes and calculating the accuracy rate
+	   	df.write("#pre-process stage seed accuracy rate: ")
+	   	for item in pre_process_seed_rate:
+	   		df.write(" %.5f" % item)
+	   		df.flush()
+	   	df.write('\n')
+	   	df.flush()
+
+
+
+	   	df.write("#refine stage seed accuracy rate: ")
+	   	for item in refine_rate:
+	   		df.write(" %.5f" % item)
+	   		df.flush()
+	   	df.write('\n')
+	   	df.flush()
+
+
+		df.write("#z socre list: ");
+	   	for item in z_score_list:
+			df.write("%.5f " % item)
+			df.flush()
+		df.write('\n')
+		df.write("########################################################################\n")
 
 	print "mapping community finished!!"
 	return 0

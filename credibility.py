@@ -63,6 +63,7 @@ def maximum_consistency_matches(matches, G1, G2, nodenum_limit=20, cth = 1.0):
     if maxindex > nodenum_limit -1 and maxcons > cth:
         credible_matches = [match for match, cdeg in mcdeg[0:maxindex+1]]
     return credible_matches
+
 def z_score(gcr,subG1,subG2):
 
 	subg1_m = nx.number_of_edges(subG1)
@@ -82,28 +83,43 @@ def z_score(gcr,subG1,subG2):
 	z = ((gcr - density)*1.0) / (density * (1 - density)) 
 	return z
 
+def plot_edge_conssitencies(edge_consists,left_index,right_index):
+	'''
+	Used to plot the consistency sequence
+	:param edge_consists: 
+	:return: 
+	'''
+	fig, ax = plt.subplots()
+	ax.plot(edge_consists, '.-')
+	ax.set_xlabel('Match index (ordered by consistent degree)')
+	#ax.set_ylabel('Consistent edge ratio')
+	ax.set_ylabel('Z_score')
+	plt.tight_layout()
+	fig.savefig("../results/week3_community_zscore_check/%d-%d.png"%(left_index,right_index))
+
+
 def consistency_sequence(matches, G1, G2):
-    '''
-    Obtain a sequence of consistencies between a series of subgraphs extracted from G_1 and G_2. Firstly we sort the 
-    matches according to their consistent degree in descending order.  Add one node in the node list recursively in 
-    the order of the sorted matches. Then we extract subgraphs based on the node list and calculate the consistency. 
-    graphs.
-    :param matches: A list of tuple (v_i, u_i), where v_i \in G_1, u_i \in G_2
-    :param G1: the matching graph
-    :param G2: the matching graph
-    :return: A list of consistencies. 
-    '''
-    cons_edges = consistent_edges(matches, G1, G2)
-    mcdeg = {}
-    for G1_edge, G2_edge in cons_edges.items():
-        mcdeg[(G1_edge[0], G2_edge[0])] = mcdeg.get((G1_edge[0], G2_edge[0]), 0) + 1
-        mcdeg[(G1_edge[1], G2_edge[1])] = mcdeg.get((G1_edge[1], G2_edge[1]), 0) + 1
-    mcdeg = sorted(mcdeg.items(), key=lambda x:x[1], reverse=True)
-    nodes1 = []
-    nodes2 = []
-    graph_matching_consistent_ratio_list = []
-    graph_matching_z_score_list = []
-    for match, cred in mcdeg:
+	'''
+	Obtain a sequence of consistencies between a series of subgraphs extracted from G_1 and G_2. Firstly we sort the 
+	matches according to their consistent degree in descending order.  Add one node in the node list recursively in 
+	the order of the sorted matches. Then we extract subgraphs based on the node list and calculate the consistency. 
+	graphs.
+	:param matches: A list of tuple (v_i, u_i), where v_i \in G_1, u_i \in G_2
+	:param G1: the matching graph
+	:param G2: the matching graph
+	:return: A list of consistencies. 
+	'''
+	cons_edges = consistent_edges(matches, G1, G2)
+	mcdeg = {}
+	for G1_edge, G2_edge in cons_edges.items():
+	    mcdeg[(G1_edge[0], G2_edge[0])] = mcdeg.get((G1_edge[0], G2_edge[0]), 0) + 1
+	    mcdeg[(G1_edge[1], G2_edge[1])] = mcdeg.get((G1_edge[1], G2_edge[1]), 0) + 1
+	mcdeg = sorted(mcdeg.items(), key=lambda x:x[1], reverse=True)
+	nodes1 = []
+	nodes2 = []
+	graph_matching_consistent_ratio_list = []
+	graph_matching_z_score_list = []
+	for match, cred in mcdeg:
 		nodes1.append(match[0])
 		nodes2.append(match[1])
 		subG1 = G1.subgraph(nodes1)
@@ -112,8 +128,8 @@ def consistency_sequence(matches, G1, G2):
 		z = z_score(gcr,subG1,subG2)
 		graph_matching_consistent_ratio_list.append(gcr)
 		graph_matching_z_score_list.append(z)
-        # print match, gcr
-    return graph_matching_consistent_ratio_list,graph_matching_z_score_list,nodes1,nodes2
+
+	return graph_matching_consistent_ratio_list,graph_matching_z_score_list,nodes1,nodes2
 
 
 def graph_consistency(consistent_edges, G1, G2):
@@ -135,34 +151,23 @@ def graph_consistency(consistent_edges, G1, G2):
     return consistent_edge_count*1.0/max(G2_size, G1_size)
 
 
-def plot_edge_conssitencies(edge_consists):
-    '''
-    Used to plot the consistency sequence
-    :param edge_consists: 
-    :return: 
-    '''
-    fig, ax = plt.subplots()
-    ax.plot(edge_consists, '.-')
-    ax.set_xlabel('Match index (ordered by consistent degree)')
-    #ax.set_ylabel('Consistent edge ratio')
-    ax.set_ylabel('Z_score')
-    plt.tight_layout()
-    plt.show()
 
 
 
-def obtain_seed_with_edges_credibility(matches,G1,G2,real_common_nodes,loop_index = 0):
+def obtain_seed_with_edges_credibility(matches,G1,G2,real_common_nodes,left_index,right_index,loop_index = 0):
 
 	matching_consistent_ratio_list,graph_matching_z_score_list,nodes_left,nodes_right = consistency_sequence(matches, G1, G2)
 
 	#length = len(matching_consistent_ratio_list)
 	length = len(graph_matching_z_score_list)
+	eligible_nodes = []
+	if length == 0:
+		return eligible_nodes,0,0,0
 	dic = {}
 	for i in range(length):
 		dic[i] = graph_matching_z_score_list[i]
 
 	dic = sorted(dic.items(), key=lambda x:x[1], reverse=True)
-
 	if dic[0][1] <= 2:
 		h = dic[0][0];
 	else:
@@ -207,7 +212,7 @@ def obtain_seed_with_edges_credibility(matches,G1,G2,real_common_nodes,loop_inde
 
 	#plot_edge_conssitencies(matching_consistent_ratio_list)
 	print "h = %d,z_score = %.2f" % (h,graph_matching_z_score_list[h])
-	#plot_edge_conssitencies(graph_matching_z_score_list)
+	plot_edge_conssitencies(graph_matching_z_score_list,left_index,right_index)
 	print "average_degree: %.3f" % (average_degree* 1.0 / (i+1))
 	return eligible_nodes,count,rate,graph_matching_z_score_list[h]
 	
