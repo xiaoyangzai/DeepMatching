@@ -38,49 +38,46 @@ def match_consistent_degree(matches, G1, G2):
     return mcdeg
 
 
-def maximum_consistency_matches(matches, G1, G2, nodenum_limit=20, cth = 1.0):
-    '''
-    Extract a sublist of matches in order to maximize the consistency between the two subgraphs. The two subgraphs 
-    are extracted from the two matching graphs according to the sublist of matches. The consistency between two 
-    graphs is defined as the ratio of the number of consistent edges between the two graphs over the maximun number 
-    of edges of the two graphs. 
-    :param matches: A list of tuple (v_i, u_i), where v_i \in G_1, u_i \in G_2
-    :param G1: the matching graph
-    :param G2: the matching graph
-    :param nodenum_limit: The minimum number of nodes in each subgraph. 
-    :param cth: The consistency threshold, a consistency below this threshold suggests a failed matching. 
-    :return: A sublist of matches. A empty list represents a failed matching. 
-    '''
-    cseq = consistency_sequence(matches, G1, G2)
-    for i in range(nodenum_limit):
-        cseq[i] = 0
-    mcdeg = match_consistent_degree(matches, G1, G2)
-    mcdeg = sorted(mcdeg.items(), key=lambda x: x[1], reverse=True)
-    maxindex = cseq.index(max(cseq))
-    maxcons = cseq[maxindex]
-    print maxindex, maxcons
-    credible_matches = []
-    if maxindex > nodenum_limit -1 and maxcons > cth:
-        credible_matches = [match for match, cdeg in mcdeg[0:maxindex+1]]
-    return credible_matches
+def maximum_consistency_matches(matches, G1, G2, nodenum_limit=7, cth = 2.0):
+	'''
+	Extract a sublist of matches in order to maximize the consistency between the two subgraphs. The two subgraphs 
+	are extracted from the two matching graphs according to the sublist of matches. The consistency between two 
+	graphs is defined as the ratio of the number of consistent edges between the two graphs over the maximun number 
+	of edges of the two graphs. 
+	:param matches: A list of tuple (v_i, u_i), where v_i \in G_1, u_i \in G_2
+	:param G1: the matching graph
+	:param G2: the matching graph
+	:param nodenum_limit: The minimum number of nodes in each subgraph. 
+	:param cth: The consistency threshold, a consistency below this threshold suggests a failed matching. 
+	:return: A sublist of matches. A empty list represents a failed matching. 
+	'''
+	mcdeg = match_consistent_degree(matches, G1, G2)
+	seeds = []
+	for match, deg in mcdeg.items():
+		if deg > cth:
+			seeds.append(match)
+	if len(seeds) < nodenum_limit:
+		seeds = []
+	return seeds
 
-def z_score(gcr,subG1,subG2):
-
-	subg1_m = nx.number_of_edges(subG1)
-	subg2_m = nx.number_of_edges(subG2)
-
-	subg1_n = nx.number_of_nodes(subG1)
-	subg2_n = nx.number_of_nodes(subG2)
-	if subg1_n <= 1 or subg2_n <= 1 or subg1_m == 0 or subg2_m == 0:
+def z_score(gcr, subG1, subG2, k_c):
+	subG1_m = nx.number_of_edges(subG1)
+	subG2_m = nx.number_of_edges(subG2)
+	subG1_n = nx.number_of_nodes(subG1)
+	subG2_n = nx.number_of_nodes(subG2)
+	if subG1_n <= 1 or subG2_n <= 1 or subG1_m == 0 or subG2_m == 0:
 		return 0.0
-
-	density_subg1 = 2*subg1_m * 1.0 / (subg1_n *(subg1_n - 1)) 
-	density_subg2 = 2*subg2_m * 1.0 / (subg2_n *(subg2_n - 1)) 
-
-	density = density_subg1 if density_subg1 <= density_subg2 else density_subg2
+	density_subG1 = (2 * subG1_m * 1.0) / (subG1_n * (subG1_n - 1))
+	density_subG2 = (2 * subG2_m * 1.0) / (subG2_n * (subG2_n - 1))
+	density = density_subG1 if density_subG1 <= density_subG2 else density_subG2
 	if density == 1:
 		return 0.0
-	z = ((gcr - density)*1.0) / (density * (1 - density)) 
+	z = 0.0
+	p1 = (9 * density) / (1 - density)
+	p2 = (9 * (1 - density)) / density
+	p = p1 if p1 >= p2 else p2
+	if k_c >= p:
+		z = ((gcr - density) * 1.0) / (density * (1 - density))
 	return z
 
 def plot_edge_conssitencies(edge_consists,left_index,right_index):
@@ -95,10 +92,9 @@ def plot_edge_conssitencies(edge_consists,left_index,right_index):
 	#ax.set_ylabel('Consistent edge ratio')
 	ax.set_ylabel('Z_score')
 	plt.tight_layout()
-	fig.savefig("../results/week3_community_zscore_check/%d-%d.png"%(left_index,right_index))
+	fig.savefig("../results/week4_community_new_zscore_check/%d-%d.png"%(left_index,right_index))
 
-
-def consistency_sequence(matches, G1, G2):
+def consistency_sequence(matches, G1, G2, nodenum_limit=7, cth = 2.0):
 	'''
 	Obtain a sequence of consistencies between a series of subgraphs extracted from G_1 and G_2. Firstly we sort the 
 	matches according to their consistent degree in descending order.  Add one node in the node list recursively in 
@@ -112,46 +108,44 @@ def consistency_sequence(matches, G1, G2):
 	cons_edges = consistent_edges(matches, G1, G2)
 	mcdeg = {}
 	for G1_edge, G2_edge in cons_edges.items():
-	    mcdeg[(G1_edge[0], G2_edge[0])] = mcdeg.get((G1_edge[0], G2_edge[0]), 0) + 1
-	    mcdeg[(G1_edge[1], G2_edge[1])] = mcdeg.get((G1_edge[1], G2_edge[1]), 0) + 1
+		mcdeg[(G1_edge[0], G2_edge[0])] = mcdeg.get((G1_edge[0], G2_edge[0]), 0) + 1
+		mcdeg[(G1_edge[1], G2_edge[1])] = mcdeg.get((G1_edge[1], G2_edge[1]), 0) + 1
 	mcdeg = sorted(mcdeg.items(), key=lambda x:x[1], reverse=True)
 	nodes1 = []
 	nodes2 = []
 	graph_matching_consistent_ratio_list = []
 	graph_matching_z_score_list = []
+	seeds = []
 	for match, cred in mcdeg:
+		seeds.append(match)
 		nodes1.append(match[0])
 		nodes2.append(match[1])
 		subG1 = G1.subgraph(nodes1)
 		subG2 = G2.subgraph(nodes2)
 		gcr = graph_consistency(cons_edges, subG1, subG2)
-		z = z_score(gcr,subG1,subG2)
 		graph_matching_consistent_ratio_list.append(gcr)
+		k_c = gcr * max(G2.size(), G1.size())
+		z = z_score(gcr, subG1, subG2, k_c)
 		graph_matching_z_score_list.append(z)
-
-	return graph_matching_consistent_ratio_list,graph_matching_z_score_list,nodes1,nodes2
-
+	return graph_matching_consistent_ratio_list, graph_matching_z_score_list,nodes1,nodes2
 
 def graph_consistency(consistent_edges, G1, G2):
-    '''
-    Calculate the consistency between two graphs
-    :param consistent_edges: A dict, composed of the consistent edges
-    :param G1: the matching graph
-    :param G2: the matching graph
-    :return: the consistency, a float value between 0.0 to 1.0. 
-    '''
-    G1_size = G1.size()
-    G2_size = G2.size()
-    if G1_size == 0 or G2_size ==0:
-        return 0.0
-    consistent_edge_count = 0.0
-    for edge in G1.edges():
-        if edge in consistent_edges:
-            consistent_edge_count += 1.0
-    return consistent_edge_count*1.0/max(G2_size, G1_size)
-
-
-
+	'''
+	Calculate the consistency between two graphs
+	:param consistent_edges: A dict, composed of the consistent edges
+	:param G1: the matching graph
+	:param G2: the matching graph
+	:return: the consistency, a float value between 0.0 to 1.0. 
+	'''
+	G1_size = G1.size()
+	G2_size = G2.size()
+	if G1_size == 0 or G2_size ==0:
+		return 0.0
+	consistent_edge_count = 0.0
+	for edge in G1.edges():
+		if edge in consistent_edges or (edge[1], edge[0]) in consistent_edges:
+			consistent_edge_count += 1.0
+	return consistent_edge_count*1.0/max(G2_size, G1_size)
 
 
 def obtain_seed_with_edges_credibility(matches,G1,G2,real_common_nodes,left_index,right_index,loop_index = 0):
@@ -182,7 +176,7 @@ def obtain_seed_with_edges_credibility(matches,G1,G2,real_common_nodes,left_inde
 	if len(eligible_nodes) == 0:
 		#print "real seed: 0"
 		#print "seed rate: 0" 
-		return eligible_nodes,0,0
+		return eligible_nodes,0,0,0
 	count = 0
 	for node in eligible_nodes:
 		if node[0] == node[1]: 
