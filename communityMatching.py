@@ -672,16 +672,23 @@ def obtain_feature_of_cmty_with_degree_distribution(G,SG,nodes_list,throd,ceil_v
 		13. average cc
 		14. midian cc.
 	'''
-	features_name_list = ["outdegree","nodes","degree[0 - %d] distribution "%(ceil_value),"density","%d th triangles"%(int(throd*0.75)),"%d th triangles"%(int(throd*0.75)),"average bs","midian bs","%d th cc" % (int(throd * 0.75)),"average cc","midian cc"]
+	features_name_list = ["outdegree","nodes","average degree","midian degree","degree[0 - %d] distribution "%(ceil_value),"density","%d th triangles"%(int(throd*0.75)),"%d th triangles"%(int(throd*0.75)),"average bs","midian bs","%d th cc" % (int(throd * 0.75)),"average cc","midian cc"]
 	feature = []	
 	#obtain the outdegree of the community
 	outdegree = obtain_degree_extern_cmty(G,nodes_list)
+
 	feature.append(outdegree)
+	feature.append(len(nodes_list))
 
 	#calculate the degree distribution of the nodes
 	degree_nodes,edges = obtain_degree_inter_cmty(G,nodes_list)
 	#2.1 calculate the degree distribution of the nodes in the community 
 	degree_nodes = sorted(degree_nodes,key=lambda x:x[1],reverse = True)
+	degree_list = [item[1] for item in degree_nodes]
+	average_degree = float(sum(degree_list))/len(degree_list)	
+	midian_degree = obtain_midian_list(degree_list)
+	feature.append(average_degree)
+	feature.append(midian_degree)
 
 	max_nodes_list = []
 	for i in range(throd):

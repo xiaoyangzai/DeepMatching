@@ -72,8 +72,6 @@ def obtain_seed_with_edges_credibility(matches,G1,G2,real_common_nodes,left_inde
 	return seed_nodes_list,count,seed_rate,cred
 
 def random_mapping_parameters_estimate(G1, G2,nodes1,nodes2):
-    print "nodes1: "
-    print nodes1
     edge_consistency_list = []
     random_number = len(nodes1) if len(nodes1) <= len(nodes2) else len(nodes2) 
 
