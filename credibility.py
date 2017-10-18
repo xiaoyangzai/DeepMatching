@@ -83,7 +83,7 @@ def random_mapping_parameters_estimate(G1, G2,nodes1,nodes2):
     edge_consistency_list = np.array(edge_consistency_list)
     return (np.mean(edge_consistency_list), np.std(edge_consistency_list))
 
-def maximum_consistency_matches(matches, G1, G2, nodenum_limit=7, cth = 7):
+def maximum_consistency_matches(matches, G1, G2, nodenum_limit=7, cth = 3):
     '''
     Extract a sublist of matches in order to maximize the consistency between the two subgraphs. The two subgraphs 
     are extracted from the two matching graphs according to the sublist of matches. The consistency between two 
@@ -97,8 +97,12 @@ def maximum_consistency_matches(matches, G1, G2, nodenum_limit=7, cth = 7):
     :return: A sublist of matches. An empty list represents a failed matching. 
     '''
     mcdeg = match_consistent_degree(matches, G1, G2)
+    #calculate the average number of nodes' neighbours
     seeds = []
     for match, deg in mcdeg.items():
+        #left_neighbours = [n for n in G1.neighbors(match[0])]
+        #right_neighbours = [n for n in G2.neighbors(match[1])]
+        #average_degree = len(left_neighbours) if len(left_neighbours) <= len(right_neighbours) else len(right_neighbours)
         if deg > cth:
             seeds.append(match)
     if len(seeds) < nodenum_limit:
