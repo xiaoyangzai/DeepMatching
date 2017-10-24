@@ -445,6 +445,7 @@ def obtain_degree_extern_cmty(G,nodes_list):
                 for i in temp:
                         if i not in nodes_list:
                                 degrees_of_nodes += 1
+        print "outdegree : %d"%degrees_of_nodes
         print "obtain extern degree of cmty....ok"
         return degrees_of_nodes
 
@@ -646,12 +647,11 @@ def obtain_degree_distribution_list(degree_nodes,ceil_value):
                 if i > degrees_list[0]:
                         break
                 distribution_list[i] = degrees_list.count(i) 
-        print "number of 0 degree: %d" % distribution_list[0]
         return distribution_list
                 
 
 
-def obtain_feature_of_cmty_with_degree_distribution(G,SG,nodes_list,throd,ceil_value):
+def obtain_feature_of_cmty_with_degree_distribution(G,nodes_list,throd,ceil_value):
         '''
         obtain the feature of the community
         Return: the community feature
@@ -823,7 +823,8 @@ def merge_small_community(G,rest_small_cmty,new_cmty_list):
         print "discard %d small communitis" % discard_count
         print "merge small community....ok!!"
         return new_cmty_list
-def obtain_cmty_feature_array(G,SG,cmty_list,throd_value,ceil_value):
+
+def obtain_cmty_feature_array(G,cmty_list,low_threshold,upper_threshold,feature_method = obtain_feature_of_cmty_with_degree_distribution):
         '''
         Return the features of communities in the 'cmty_list' in graph 'G'
 
@@ -833,59 +834,29 @@ def obtain_cmty_feature_array(G,SG,cmty_list,throd_value,ceil_value):
         G : networkx graph
                 original networkx graph
 
-        SG : Snap graph
-                the Snap graph generated with original networkx 'G'
-
         cmty_list : List
                 consists of the communities detected by using detection method in G1 and every community contains some nodes
         [[node1,node3,...],[node2,node5,...],...]       
 
-        throd_value : Int
-                the threshold of the number of nodes in the eligible community
+        low_threshold : Int
+                the low threshold of the number of nodes in the eligible community
+        upper_threshold : Int
+                the ceil threshold of the number of nodes in the eligible community
         
         Returns:
         --------
-
-        eligible_cmty_list : List
-                consists of communities in which nunber of nodes is  more than the threshold
-                [[node1,node3,...],[node2,node5,...],...]       
-        
         feature : List
                 consists of the features of communities in 'eligible_cmty_list'
                 [[feature_of_community_1],[feature_of_community_2],...] 
         '''     
         print "obtain cmty feature array"
         feature = [] 
-        eligible_cmty_list = []
-        rest_small_cmty = []
-        new_cmty_list = []
         for cmty in cmty_list:
-                if len(cmty) <= throd_value:
-                                rest_small_cmty.append(cmty)
-                else:
-                        new_cmty_list.append(cmty)
-        
-        #neglect the small size community
-        eligible_cmty_list = new_cmty_list
-
-        
-        ##join the small community into community with which it is most connected
-        #if len(rest_small_cmty) > 0:
-        #       eligible_cmty_list = merge_small_community(G,rest_small_cmty,new_cmty_list)
-        #else:
-        #       eligible_cmty_list = new_cmty_list
-        #print "hanld the cmty with throd..ok"
-        loop_index = 0
-        for cmty in eligible_cmty_list:
-                print "cmty: %d" % loop_index
-                print "length: %d" % len(cmty) 
-                loop_index += 1
-                #temp = obtain_feature_of_cmty(G,SG,cmty,throd_value)
-                temp = obtain_feature_of_cmty_with_degree_distribution(G,SG,cmty,throd_value,ceil_value)
+                temp = feature_method(G,cmty,low_threshold,upper_threshold)
+                temp = normalize_cmty_feature(temp)
                 feature.append(temp)
-                sys.stdout.flush()
         print "obtain cmty feature array finished"
-        return eligible_cmty_list,feature
+        return feature
 
 def euclidean_metric(sg1_feature_list,sg2_feature_list):
         '''
@@ -938,7 +909,7 @@ def euclidean_distance(sg1_feature_list,sg2_feature_list):
         
                 
 
-def obtain_score_between_features(sg1_feature_list,sg2_feature_list,method = euclidean_metric):
+def obtain_score_between_features(long_features_list,short_features_list,method = euclidean_metric):
         '''
         calculate the similarity score between features by algritom specified method
 
@@ -964,9 +935,10 @@ def obtain_score_between_features(sg1_feature_list,sg2_feature_list,method = euc
                 ]
         
         '''
-        big_feature_list = sg1_feature_list if len(sg1_feature_list) >= len(sg2_feature_list) else sg2_feature_list
+        big_feature_list = long_features_list
         score_list = [[] for i in range(len(big_feature_list))]
-        small_feature_list = sg1_feature_list if len(sg1_feature_list) < len(sg2_feature_list) else sg2_feature_list
+        small_feature_list = short_features_list
+
         for index in range(0,len(big_feature_list)):
                 s_feature = big_feature_list[index]
                 for d_feature in small_feature_list:
@@ -1015,71 +987,68 @@ def calculate_common_nodes_between_cmties(s_nodes_list,d_nodes_list):
         print "common rate: %.4f" % common_nodes_rate
         return common_nodes_rate, common_nodes_list
 
-def repeated_eavalute_accuracy_by_feature(G1,G2,limit_cmty_nodes = 10,method = euclidean_metric,detect_method = cnm.community_best_partition_with_limit):
+def repeated_eavalute_accuracy_by_feature(long_G,short_G,long_cmty_list,short_cmty_list,low_threshold = 50,upper_threshold = 1000,method = euclidean_metric,detect_method = cnm.community_best_partition_with_limit):
 
-        '''
-        Return the matched pairs of communities from the 'G1' and 'G2' and calculate the matching accuracy rate between the communities detected by the method specified by 'detect_methond'    
+    '''
+    Return the matched pairs of communities from the 'G1' and 'G2' and calculate the matching accuracy rate between the communities detected by the method specified by 'detect_methond'    
 
-        Parameters
-        ----------
-        G1,G2 : networkx graph
-                original networkx graph
+    Parameters
+    ----------
+    G1,G2 : networkx graph
+            original networkx graph
 
-        limit_cmty_nodes : int
-                the minimum number of nodes in a community
-        
-        method : pointer
-                point the  function of calculating distance bewteen communities' features
+    low_threshold : int
+            the minimum number of nodes in a community
 
-        detect_method : pointer
-                point the  function of detecting tht communities in graphes 
+    upper_threshold : int
+            the minimum number of nodes in a community
+    
+    method : pointer
+            point the  function of calculating distance bewteen communities' features
 
-        Returns
-        -------
+    detect_method : pointer
+            point the  function of detecting tht communities in graphes 
 
-                rate : float    
-                        the accuracy rate of matched pairs of communities
+    Returns
+    -------
 
-                left_Graph,right_Graph : networkx graph
-                        specified which graph the left communities or right communities in 'matched_index'      belong to 
-                        example: matched_index = [[1,3],[5,6],...]. the community of index 1 is in left_Graph and the community of index 3 is in right_Graph 
+    rate : float    
+        the accuracy rate of matched pairs of communities
 
-                left_cmty_list,right_cmty_list : List
-                        consist of the communities in left Graph and right Graph
-                        [[community_1],[community_2],....]
-                
-                matched_index : List
-                        consists of matched index of communities between the left Graph and right Graph
-                        [[1,3],[4,5],...]
+    left_Graph,right_Graph : networkx graph
+        specified which graph the left communities or right communities in 'matched_index'      belong to 
+                    example: matched_index = [[1,3],[5,6],...]. the community of index 1 is in left_Graph and the community of index 3 is in right_Graph 
 
-                scroe_list : List
-                        contain the distances between each pairs of features of communities 
-                        [
-                                [community_1_of_left_Graph,similiarity_1_with_community_in_right_graph,similiarity_2_with_community_in_right_graph,similiarity_3_with_community_in_right_graph,...]
-                                [community_2_of_left_Graph,similiarity_1_with_community_in_right_graph,similiarity_2_with_community_in_right_graph,similiarity_3_with_community_in_right_graph,...]
-                                ....
-                        ]
-                
-        '''
-        #print "sample rate: %.4f" % sample_rate
-        #print "limit cmty nodes: %d" % limit_cmty_nodes
+            left_cmty_list,right_cmty_list : List
+                    consist of the communities in left Graph and right Graph
+                    [[community_1],[community_2],....]
+            
+            matched_index : List
+                    consists of matched index of communities between the left Graph and right Graph
+                    [[1,3],[4,5],...]
 
+            scroe_list : List
+                    contain the distances between each pairs of features of communities 
+                    [
+                            [community_1_of_left_Graph,similiarity_1_with_community_in_right_graph,similiarity_2_with_community_in_right_graph,similiarity_3_with_community_in_right_graph,...]
+                            [community_2_of_left_Graph,similiarity_1_with_community_in_right_graph,similiarity_2_with_community_in_right_graph,similiarity_3_with_community_in_right_graph,...]
+                            ....
+                    ]
+            
+    '''
+    # The type of SG1 and SG2 is the type Snap needs 
+    # SG1_ret_list and SG2_ret_list is the result of the detection of graph
 
-        # The type of SG1 and SG2 is the type Snap needs 
-        # SG1_ret_list and SG2_ret_list is the result of the detection of graph
-        SG1,SG2,SG1_ret_list,SG2_ret_list,limit_ceil_cmty = community_detect_graph(G1,G2,detect_method = detect_method)
+    long_cmty_features = obtain_cmty_feature_array(long_G,long_cmty_list,low_threshold,upper_threshold)
+    short_cmty_features = obtain_cmty_feature_array(short_G,short_cmty_list,low_threshold,upper_threshold)
 
-        # The SG1_rest_small_cmty, same as SG2_rest_small_cmty, holds the communities in which the nodes is lower than the throd. The SG1_new_cmty_list just includes the eligible communities.
-        SG1_eligible_cmty_list,SG1_features_list = obtain_cmty_feature_array(G1,SG1,SG1_ret_list,limit_cmty_nodes,limit_ceil_cmty)
-        SG2_eligible_cmty_list,SG2_features_list = obtain_cmty_feature_array(G2,SG2,SG2_ret_list,limit_cmty_nodes,limit_ceil_cmty)
-        score_list = obtain_score_between_features(SG1_features_list,SG2_features_list,method = method)
+    score_list = obtain_score_between_features(long_cmty_features,short_cmty_features,method = method)
+    accuracy_rate,overlap_list,matched_index = calculate_accuracy_rate_by_feature(long_G,long_cmty_list,short_G,short_cmty_list,score_list,long_cmty_features,short_cmty_features,throd_value = 0.3)
 
-        rate,left_Graph,right_Graph,left_cmty_list,right_cmty_list,matched_index = calculate_accuracy_rate_by_feature(G1,SG1_eligible_cmty_list,G2,SG2_eligible_cmty_list,score_list,SG1_features_list,SG2_features_list,throd_value = 0.3)
-
-        return rate,left_Graph,right_Graph,left_cmty_list,right_cmty_list,matched_index,SG1_features_list,SG2_features_list,score_list
+    return accuracy_rate,overlap_list,matched_index
 
 
-def calculate_accuracy_rate_by_feature(SG1,SG1_new_cmty,SG2,SG2_new_cmty,score_list,SG1_feature,SG2_feature,throd_value = 0.75):
+def calculate_accuracy_rate_by_feature(long_G,long_cmty_list,short_G,short_cmty_list,score_list,long_features_list,short_features_list,throd_value = 0.75):
         '''     
         calculate the accuracy rate of matching communities between graphes
 
@@ -1135,10 +1104,12 @@ def calculate_accuracy_rate_by_feature(SG1,SG1_new_cmty,SG2,SG2_new_cmty,score_l
         unmatched_count = 0
         matched_index = []
 
-        big_new_cmty,big_G = (SG1_new_cmty,SG1) if len(SG1_new_cmty) >= len(SG2_new_cmty) else (SG2_new_cmty,SG2)
-        small_new_cmty,small_G = (SG1_new_cmty,SG1) if len(SG1_new_cmty) < len(SG2_new_cmty) else (SG2_new_cmty,SG2)
-        big_feature = SG1_feature if len(SG1_feature) >= len(SG2_feature) else SG2_feature
-        small_feature = SG1_feature if len(SG1_feature) < len(SG2_feature) else SG2_feature
+        big_new_cmty,big_G = long_cmty_list,long_G 
+        small_new_cmty,small_G = short_cmty_list,short_G 
+        big_feature = long_features_list 
+        small_feature = short_features_list 
+
+        overlap_list = []
 
         loop_count = len(big_new_cmty)  
         small_cmty_count = len(small_new_cmty)
@@ -1192,7 +1163,8 @@ def calculate_accuracy_rate_by_feature(SG1,SG1_new_cmty,SG2,SG2_new_cmty,score_l
                 #add the index of big cmty 
                 have_matched_big_new_cmty[i] = C_index
                 matched_index.append([i,C_index,len(common_nodes_list),temp_rate])
-                print "rate: %.4f" % temp_rate
+                print "overlap rate: %.4f" % temp_rate
+                overlap_list.append(temp_rate)
                 if temp_rate >= throd_value:
                         print "mapping successful!"
                         matched_count += 1
@@ -1205,7 +1177,7 @@ def calculate_accuracy_rate_by_feature(SG1,SG1_new_cmty,SG2,SG2_new_cmty,score_l
         accuracy_rate = float(matched_count)/len(matched_index)
         print "total count: %d" % len(matched_index) 
         print "accuracy rate: %.5f" % accuracy_rate
-        return accuracy_rate,big_G,small_G,big_new_cmty,small_new_cmty,matched_index
+        return accuracy_rate,overlap_list,matched_index
 
 
 def deepwalk_map_prob_maxtrix(small_G,long_G,dimensions):
@@ -1486,174 +1458,303 @@ def plot_z_score(z_score_list):
         plt.tight_layout()
         plt.show()
 
+def obtain_community_detection_in_graph(G1,G2,low_threshold,upper_threshold,detect_method = cnm.community_best_partition_with_limit):
+        # The type of SG1 and SG2 is the type Snap needs 
+        # SG1_ret_list and SG2_ret_list is the result of the detection of graph
+        G1_cmty_list,G1_cmty_list = community_detect_graph(G1,G2,detect_method = detect_method,limit_ceil_cmty=upper_threshold)
+
+        G1_new_cmty_list = []
+        G2_new_cmty_list = []
+        for cmty in G1_cmty_list:
+                if len(cmty) > low_threshold:
+                        G1_new_cmty_list.append(cmty)
+        for cmty in G2_cmty_list:
+                if len(cmty) > low_threshold:
+                        G2_new_cmty_list.append(cmty)
+        return G1_new_cmty_list,G2_new_cmty_list
+
+def save_graph_community(filename,remarks,sample,low_threshold,upper_threshold):
+    # save the grpah and community
+    G = load_graph_from_file(filename,comments = '#',delimiter = ' ')
+    print "dataset has loaded successful!"
+    G1,G2 = bi_sample_graph(G,sample)
+    G1_community_list,G2_community_list = obtain_community_detection_in_graph(G1,G2,low_threshold,upper_threshold,detect_method = cnm.community_best_partition_with_limit)
+    print "community detection...over!"
+    print "save community detection..."
+    #save the G1
+    df = open(remarks+".txt","w")
+    df.write("######################################################\n")
+    df.write("#date: %s\n" % ti.strftime("%Y-%m-%d %H:%M:%S",ti.localtime(ti.time())))
+    df.write("#dataset: %s\n" % (filename))
+    df.write("#sample: %.2f\n" % (sample))
+    df.write("#low threshold: %d\n"%low_threshold)
+    df.write("#upper threshold: %d\n"%upper_threshold)
+    df.write("#G1 %d nodes and %d edges\n"%(G1.number_of_nodes(),G1.number_of_edges()))
+    df.write("#G2 %d nodes and %d edges\n"%(G2.number_of_nodes(),G2.number_of_edges()))
+
+    G1_all_edges = [e for e in G1.edges]
+    df.write("#G1:")
+    for item in G1_all_edges:
+        df.write("%d %d-"%(item[0],item[1]))
+    df.write("\n")
+    G2_all_edges = [e for e in G2.edges]
+    df.write("#G2:")
+    for item in G2_all_edges:
+        df.write("%d %d-"%(item[0],item[1]))
+    df.write("\n")
+
+    df.write("#G1 community number: %d\n"%len(G1_community_list))
+    for item in G1_community_list:
+        for i in item:
+            df.write("%d "%i)
+        df.write("\n")
+    df.write("#G2 community number: %d\n"%len(G2_community_list))
+    for item in G2_community_list:
+        for i in item:
+            df.write("%d "%i)
+        df.write("\n")
+    print "save community detection...over!"
+
+
+def load_graph_with_community(filename):
+    sf = open(filename)
+    line = sf.readline()
+    G1 = nx.Graph()
+    G2 = nx.Graph()
+    dataset = ""
+    low_threshold = 0
+    upper_threshold = 0
+    sample = 0
+    while "#G1:" not in line:
+        if "#dataset: " in line:
+            dataset = line.strip().split(' ')[-1]
+        if "#low threshold:" in line:
+            low_threshold = int(line.strip().split('#low threshold: ')[-1])
+        if "#upper threshold:" in line:
+            upper_threshold = int(line.strip().split('#upper threshold: ')[-1])
+        if "#sample:" in line:
+            sample = float(line.strip().split('#sample: ')[-1])
+        line = sf.readline()
+
+    #load G1
+    line = line.strip().split('#G1:')[-1]
+    line = line.strip().split('-')[:-1]
+    for item in line:
+        item = item.split(' ')
+        G1.add_edge(int(item[0]),int(item[1]))
+
+    while "#G2:" not in line:
+        line = sf.readline()
+    #load G2
+    line = line.strip().split('#G2:')[-1]
+    line = line.strip().split('-')[:-1]
+    for item in line:
+        item = item.split(' ')
+        G2.add_edge(int(item[0]),int(item[1]))
+
+    while "#G1 community" not in line:
+        line = sf.readline()
+    length_G1_community = int(line.strip().split(" ")[-1])
+    print "lentth G1 community: %d"%length_G1_community
+    G1_community_list = []
+    line = sf.readline()
+    for i in range(length_G1_community):
+        line = line.strip().split(" ")
+        tmp = []
+        for node in line:
+            tmp.append(int(node))
+        G1_community_list.append(tmp)
+        line = sf.readline()
+
+    while "#G2 community" not in line:
+        line = sf.readline()
+    length_G2_community = int(line.strip().split(" ")[-1])
+    print "lentth G2 community: %d"%length_G2_community
+    G2_community_list = []
+    line = sf.readline()
+    for i in range(length_G2_community):
+        line = line.strip().split(" ")
+        tmp = []
+        for node in line:
+            tmp.append(int(node))
+        G2_community_list.append(tmp)
+        line = sf.readline()
+    return G1,G2,G1_community_list,G2_community_list,dataset,sample,low_threshold,upper_threshold
 
 
 def main():
-
-        if len(sys.argv) < 7:
-                print "usage: ./deepmatching_for_cmty.py [filename] [sample rate]  [community size threshold] [loop count] [distance function = 1] [remarks]"
-                return -1
-
-        sample_rate = float(sys.argv[2])
-        throd_value = int(sys.argv[3])
-        repeated_count = int(sys.argv[4])
-        if(sys.argv[5] == "1"):
-                method_select = euclidean_distance
-        else:
-                method_select = euclidean_metric
-
-        filename = "%s_cmty_matching_with_sample_%.2f_repeat_%d_z_threshold_2.0_6.0_10.0_cmty_throd_%d.txt"%(sys.argv[6],float(sys.argv[2]),repeated_count,throd_value)
-        print "result will be recorded in %s"%filename
-        df = open(filename,"w")
-        df.write("########################################################################\n")
-        df.write("#date: %s\n" % ti.strftime("%Y-%m-%d %H:%M:%S",ti.localtime(ti.time())))
-        df.write("#remarks: %s\n" % sys.argv[6])
-        df.write("#dataset: %s\n" % (sys.argv[1]))
-        df.write("#sample: %.2f\n" % (float(sys.argv[2])))
-        df.write("#similarity function: %s\n" % "euclidean_distance")
-        df.write("#throd of the community: %d\n" % throd_value)
-        df.write("#repeated loop count: %d\n" % repeated_count)
-        df.flush()
-
-        #load graph form file
-        print "Loading the graph from file....."
-        nx_G = load_graph_from_file(sys.argv[1],delimiter = ' ')
-        print "graph  info: %d-nodes %d-edges" %(len(nx_G.nodes()),len(nx_G.edges()))
-        print "Loading the graph from file.....ok!!"
-
-        df.write("#Graph Infomation: G1 %d-nodes %d-edges\n" % (len(nx_G.nodes()),len(nx_G.edges())))
-        df.flush()
-
-        print "begin to execute the 5 stage....."       
-        dimensions = 160 
-
-        #features_name_list = ["outdegree","nodes","degree[0 - %d] distribution "%(1000),"density","%d th triangles"%(int(throd_value*0.75)),"%d th triangles"%(int(throd_value*0.75)),"average bs","midian bs","%d th cc" % (int(throd_value * 0.75)),"average cc","midian cc"]
-        features_name_list = ["outdegree","nodes","degree[0 - %d] distribution "%(1000),"edges","average degree","midian degree","density"]
-        for crebility_threshold in [2.0,6.0,10.0]:
-            df.write("#z score threshold: %0.3f\n"%crebility_threshold)
-            print "crebility threshold : %f"%crebility_threshold
-            for i in range(repeated_count):
-                    sys.stdout.flush()
-                    G1,G2 = bi_sample_graph(nx_G,sample_rate)
-                    #obtain the pairs of index of the matched communities
-                    community_accuracy_rate,left_graph,right_graph,left_cmty_list,right_cmty_list,matched_index,SG1_features_list,SG2_features_list,score_list = repeated_eavalute_accuracy_by_feature(G1,G2,limit_cmty_nodes = throd_value)
-
-                    matched_nummber_nodes,pre_process_seed_rate,pre_process_seed_nodes_list,refine_rate_list,refine_match_nodes_list,z_score_list,global_seeds_accuracy_rate,refine_rate = obtain_accuracy_rate_in_matched_cmty(left_graph,left_cmty_list,right_graph,right_cmty_list,matched_index,dimensions,z_score_threshold = crebility_threshold)
-                    if global_seeds_accuracy_rate == 0:
-                        i = i - 1;
-                        continue
-                    df.write("# %ith loop:\n"%i)
-                    print "current %d loop"%i
-                    #record the community mapping result
-                    df.write("#Communities mapped results[source cmty id,dest cmty id,common nodes number]: \n")
-                    for item in matched_index:
-                            df.write("%d-%d-%d-%0.4f "%(item[0],item[1],item[2],item[3]));
-                            df.flush()
-                    df.write("\n")
-                    df.write("#total community mapped number: %d\n"%(len(matched_index)))
-                    df.write("#community mapping accuracy: %0.4f\n"%(community_accuracy_rate));
-
-                     
-                    #record the small commnuity size
-                    df.write("#left graph cmty total number: %d\n"%len(left_cmty_list));
-                    df.write("#left graph cmty length distribution: \n")
-                    for index in left_cmty_list:
-                            df.write("%i\t" % (len(index)))
-                            df.flush()
-                    df.write("\n")
-
-                    df.write("#right graph cmty total number: %d\n"%len(right_cmty_list));
-                    df.write("#right graph cmty length distribution: \n")
-                    for index in right_cmty_list:
-                            df.write("%i\t" % (len(index)))
-                            df.flush()
-                    df.write("\n")
-
-                    df.write("#cmty similarity between the left and right graph: \n")
-                    for item in score_list:
-                            df.write("index %d: "% score_list.index(item))
-                            for score in item:
-                                    df.write("%f "% float(score))
-                            df.write("\n")
-                    df.write("#################################################\n")
-
-                    #record the features of the each community
-                    df.write("#features name list: \n")
-                    for item in features_name_list:
-                            df.write("%s\t"%item);
-                            df.flush()
-                    df.write("\n")
-
-                    df.write("#left graph cmty features: \n")
-                    cmty_index = 0
-
-                    for cmty_index in range(len(SG1_features_list)):
-                            df.write("#community %d: "% cmty_index)
-                            for item in SG1_features_list[cmty_index]:
-                                    df.write("%.5f\t" % item)
-                                    df.flush()
-                            df.write("\n")
-                    df.write("#right graph cmty features: \n")
-                    cmty_index = 0
-                    for cmty_index in range(len(SG2_features_list)):
-                            df.write("#community %d: "% cmty_index)
-                            for item in SG2_features_list[cmty_index]:
-                                    df.write("%.5f\t" % item)
-                                    df.flush()
-                            df.write("\n")
-
-                    ## the dimensions of feature of the nodes obtained by deepwalk 
-            
-                    df.write("#dimensions: %d\n" % dimensions)
-                    df.write("#deepwalk results[cmty-deepwalk-seed]: ")
-                    for item in matched_nummber_nodes:
-                            df.write("%d-%d-%d-%d-%d-%d-%d-%d " % (item[0],item[1],item[2],item[3],item[4],item[5],item[6],item[7]))
-                    df.flush()
-                    df.write('\n')
-                    df.flush()
-                    #finding the seed nodes and calculating the accuracy rate
-                    df.write("#pre-process stage seed accuracy rate: ")
-                    for item in pre_process_seed_rate:
-                            df.write(" %.5f" % item)
-                            df.flush()
-                    df.write('\n')
-                    df.flush()
-
-
-
-                    df.write("#refine stage seed accuracy rate: ")
-                    for item in refine_rate_list:
-                            df.write(" %.5f" % item)
-                            df.flush()
-                    df.write('\n')
-                    df.flush()
-
-
-                    df.write("#z socre list: ");
-                    for item in z_score_list:
-                            df.write("%.5f " % item)
-                            df.flush()
-                    df.write('\n')
-                    df.write("#z cmty mapping accuracy rate: ")
-                    z_matched_cmty_index = [] 
-                    real_matched_cmty_index = []
-                    for i in range(len(z_score_list)):
-                            if z_score_list[i] > 2.0:
-                                    z_matched_cmty_index.append(i)
-                                    if(matched_index[i][3] > 0.3):
-                                            real_matched_cmty_index.append(i)
-                    tmp = float(len(real_matched_cmty_index))/len(z_matched_cmty_index)
-                    df.write(" %.5f" % tmp)
-                    df.write('\n')
-                    df.write("#total z community mapped number: %d\n"%(len(z_matched_cmty_index)))
-                    print "z community mapped accuracy rate: %f\n" % tmp
-                    df.write("#global seeds accuracy rate: %f\n" % global_seeds_accuracy_rate)
-                    df.write("#propagation_rate: %f\n" % refine_rate)
-                    df.write("########################################################################\n")
-            df.write("z score threshold end\n")
-
-        print "mapping community finished!!"
-        return 0
+    #=============================================================================#
+    #save the community
+    #if len(sys.argv) < 6:
+    #        print "usage: ./deepmatching_for_cmty.py [filename] [sample] [low_threshold] [upper_threshold] [remarks]"
+    #        return -1
+    #
+    #save_graph_community(sys.argv[1],sys.argv[5],float(sys.argv[2]),int(sys.argv[3]),int(sys.argv[4]))
+    #=============================================================================#
+    #=============================================================================#
+    # load the community
+    if len(sys.argv) < 2:
+        print "usage: ./deepmatching_for_cmty.py [filename]"
+        return -1
+    G1,G2,G1_community_list,G2_community_list,dataset,sample,low_threshold,upper_threshold = load_graph_with_community(sys.argv[1])
+    print "dataset: %s" % dataset
+    print "sample: %f" % sample
+    print "low threshold: %d" % low_threshold
+    print "upper threshold: %d" % upper_threshold
+    
+    print "G1: %d nodes and %d edges" %(G1.number_of_nodes(),G1.number_of_edges()) 
+    print "G1 community length: %d" % len(G1_community_list)
+    print "G2: %d nodes and %d edges" %(G2.number_of_nodes(),G2.number_of_edges()) 
+    print "G2 community length: %d" % len(G2_community_list)
+    print "load graph and community successfully!"
+    long_cmty_list,long_G = (G1_community_list,G1) if len(G1_community_list) >= len(G2_community_list) else (G2_community_list,G2)
+    short_cmty_list,short_G = (G1_community_list,G1) if len(G1_community_list) < len(G2_community_list) else (G2_community_list,G2)
+    filename = "%s_community_matching_result.txt"%(dataset)
+    print "result will be recorded in %s"%filename
+    df = open(filename,"w")
+    df.write("########################################################################\n")
+    df.write("#date: %s\n" % ti.strftime("%Y-%m-%d %H:%M:%S",ti.localtime(ti.time())))
+    df.write("#dataset: %s\n" % (dataset))
+    df.write("#sample: %.2f\n" % (sample))
+    df.write("#similarity function: %s\n" % "euclidean_distance")
+    df.write("#low thresholdof the community: %d\n" % low_threshold)
+    df.write("#upper thresholdof the community: %d\n" % upper_threshold)
+    df.flush()
+    community_accuracy_rate,overlap_list,matched_index = repeated_eavalute_accuracy_by_feature(long_G,short_G,long_cmty_list,short_cmty_list,low_threshold = low_threshold,upper_threshold = upper_threshold)
+    print "community_accuracy_rate : %.4f" % community_accuracy_rate
+    print "overlap rate: "
+    print overlap_list
+    overlap_list = np.array(overlap_list)
+    print "average overlap rate: %.3f" % (overlap_list.mean())
+    df.write("#community mapping accuracy rate: %.3f"%community_accuracy_rate);
+    
+    df.write("#average overlap rate: %.3f"%overlap_list.mean())
+    df.write("#stderr overlap rate: %.3f"%overlap_list.std())
+    df.write("########################################################################\n")
+    df.flush()
+#
+#        for crebility_threshold in [2.0,6.0,10.0]:
+#            df.write("#z score threshold: %0.3f\n"%crebility_threshold)
+#            print "crebility threshold : %f"%crebility_threshold
+#            for i in range(repeated_count):
+#                    #obtain the pairs of index of the matched communities
+#                    community_accuracy_rate,overlap_list,matched_index = repeated_eavalute_accuracy_by_feature(long_G,short_G,low_threshold = low_threshold,upper_threshold = upper_threshold)
+#                    matched_nummber_nodes,pre_process_seed_rate,pre_process_seed_nodes_list,refine_rate_list,refine_match_nodes_list,z_score_list,global_seeds_accuracy_rate,refine_rate = obtain_accuracy_rate_in_matched_cmty(left_graph,left_cmty_list,right_graph,right_cmty_list,matched_index,dimensions,z_score_threshold = crebility_threshold)
+#                    if global_seeds_accuracy_rate == 0:
+#                        i = i - 1;
+#                        continue
+#                    df.write("# %ith loop:\n"%i)
+#                    print "current %d loop"%i
+#                    #record the community mapping result
+#                    df.write("#Communities mapped results[source cmty id,dest cmty id,common nodes number]: \n")
+#                    for item in matched_index:
+#                            df.write("%d-%d-%d-%0.4f "%(item[0],item[1],item[2],item[3]));
+#                            df.flush()
+#                    df.write("\n")
+#                    df.write("#total community mapped number: %d\n"%(len(matched_index)))
+#                    df.write("#community mapping accuracy: %0.4f\n"%(community_accuracy_rate));
+#
+#                     
+#                    #record the small commnuity size
+#                    df.write("#left graph cmty total number: %d\n"%len(left_cmty_list));
+#                    df.write("#left graph cmty length distribution: \n")
+#                    for index in left_cmty_list:
+#                            df.write("%i\t" % (len(index)))
+#                            df.flush()
+#                    df.write("\n")
+#
+#                    df.write("#right graph cmty total number: %d\n"%len(right_cmty_list));
+#                    df.write("#right graph cmty length distribution: \n")
+#                    for index in right_cmty_list:
+#                            df.write("%i\t" % (len(index)))
+#                            df.flush()
+#                    df.write("\n")
+#
+#                    df.write("#cmty similarity between the left and right graph: \n")
+#                    for item in score_list:
+#                            df.write("index %d: "% score_list.index(item))
+#                            for score in item:
+#                                    df.write("%f "% float(score))
+#                            df.write("\n")
+#                    df.write("#################################################\n")
+#
+#                    #record the features of the each community
+#                    df.write("#features name list: \n")
+#                    for item in features_name_list:
+#                            df.write("%s\t"%item);
+#                            df.flush()
+#                    df.write("\n")
+#
+#                    df.write("#left graph cmty features: \n")
+#                    cmty_index = 0
+#
+#                    for cmty_index in range(len(SG1_features_list)):
+#                            df.write("#community %d: "% cmty_index)
+#                            for item in SG1_features_list[cmty_index]:
+#                                    df.write("%.5f\t" % item)
+#                                    df.flush()
+#                            df.write("\n")
+#                    df.write("#right graph cmty features: \n")
+#                    cmty_index = 0
+#                    for cmty_index in range(len(SG2_features_list)):
+#                            df.write("#community %d: "% cmty_index)
+#                            for item in SG2_features_list[cmty_index]:
+#                                    df.write("%.5f\t" % item)
+#                                    df.flush()
+#                            df.write("\n")
+#
+#                    ## the dimensions of feature of the nodes obtained by deepwalk 
+#            
+#                    df.write("#dimensions: %d\n" % dimensions)
+#                    df.write("#deepwalk results[cmty-deepwalk-seed]: ")
+#                    for item in matched_nummber_nodes:
+#                            df.write("%d-%d-%d-%d-%d-%d-%d-%d " % (item[0],item[1],item[2],item[3],item[4],item[5],item[6],item[7]))
+#                    df.flush()
+#                    df.write('\n')
+#                    df.flush()
+#                    #finding the seed nodes and calculating the accuracy rate
+#                    df.write("#pre-process stage seed accuracy rate: ")
+#                    for item in pre_process_seed_rate:
+#                            df.write(" %.5f" % item)
+#                            df.flush()
+#                    df.write('\n')
+#                    df.flush()
+#
+#
+#
+#                    df.write("#refine stage seed accuracy rate: ")
+#                    for item in refine_rate_list:
+#                            df.write(" %.5f" % item)
+#                            df.flush()
+#                    df.write('\n')
+#                    df.flush()
+#
+#
+#                    df.write("#z socre list: ");
+#                    for item in z_score_list:
+#                            df.write("%.5f " % item)
+#                            df.flush()
+#                    df.write('\n')
+#                    df.write("#z cmty mapping accuracy rate: ")
+#                    z_matched_cmty_index = [] 
+#                    real_matched_cmty_index = []
+#                    for i in range(len(z_score_list)):
+#                            if z_score_list[i] > 2.0:
+#                                    z_matched_cmty_index.append(i)
+#                                    if(matched_index[i][3] > 0.3):
+#                                            real_matched_cmty_index.append(i)
+#                    tmp = float(len(real_matched_cmty_index))/len(z_matched_cmty_index)
+#                    df.write(" %.5f" % tmp)
+#                    df.write('\n')
+#                    df.write("#total z community mapped number: %d\n"%(len(z_matched_cmty_index)))
+#                    print "z community mapped accuracy rate: %f\n" % tmp
+#                    df.write("#global seeds accuracy rate: %f\n" % global_seeds_accuracy_rate)
+#                    df.write("#propagation_rate: %f\n" % refine_rate)
+#                    df.write("########################################################################\n")
+#            df.write("z score threshold end\n")
+#
+    print "mapping community finished!!"
+    return 0
         
 
         
