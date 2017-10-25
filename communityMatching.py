@@ -136,20 +136,6 @@ def community_detect_graph(G1,G2,detect_method = None,limit_ceil_cmty = 1000):
         print "start sample ......"
 
         start_time = time.time()
-        #transforms SG to networkx
-        if detect_method == None :
-                #detect with the cnm
-                SG1 = transform_networkx_to_snap(G1)
-                SG2 = transform_networkx_to_snap(G2)
-                SG1_ret_list_cnm = cnm.community_cnm(SG1)
-                SG2_ret_list_cnm = cnm.community_cnm(SG2)
-                SG1 = G1
-                SG2 = G2
-                SG1_ret_list_spectral = graph_spectral.partition_super_cliques(SG1)
-                SG2_ret_list_spectral = graph_spectral.partition_super_cliques(SG2)
-                running_time = time.time() - start_time
-                print "sample finished,running time :%d mins %d secs" % (int(running_time / 60),int(running_time % 60))
-                return SG1_ret_list_cnm,SG2_ret_list_cnm,SG1_ret_list_spectral,SG2_ret_list_spectral,limit_ceil_cmty
         if detect_method == cnm.community_cnm_with_limit:
                 SG1 = transform_networkx_to_snap(G1)
                 SG2 = transform_networkx_to_snap(G2)
@@ -160,7 +146,7 @@ def community_detect_graph(G1,G2,detect_method = None,limit_ceil_cmty = 1000):
                 print "SG1 community size: %d \t SG2 community size :%d " % (len(SG1_ret_list),len(SG2_ret_list))
                 running_time = time.time() - start_time
                 print "sample finished,running time :%d mins %d secs" % (int(running_time / 60),int(running_time % 60))
-                return SG1,SG2,SG1_ret_list,SG2_ret_list,limit_ceil_cmty 
+                return SG1_ret_list,SG2_ret_list
         if detect_method == cmty.best_partition:
                 s1_partition = cmty.best_partition(G1)
                 s2_partition = cmty.best_partition(G2)
@@ -177,7 +163,7 @@ def community_detect_graph(G1,G2,detect_method = None,limit_ceil_cmty = 1000):
                 print "sample finished,running time :%d mins %d secs" % (int(running_time / 60),int(running_time % 60))
                 SG1 = transform_networkx_to_snap(G1)
                 SG2 = transform_networkx_to_snap(G2)
-                return SG1,SG2,SG1_ret_list,SG2_ret_list,limit_ceil_cmty
+                return SG1_ret_list,SG2_ret_list
 
         if detect_method == cnm.community_best_partition_with_limit:
                 print "ceil size of community : %d " % limit_ceil_cmty
@@ -189,7 +175,7 @@ def community_detect_graph(G1,G2,detect_method = None,limit_ceil_cmty = 1000):
                 print "sample finished,running time :%d mins %d secs" % (int(running_time / 60),int(running_time % 60))
                 SG1 = transform_networkx_to_snap(G1)
                 SG2 = transform_networkx_to_snap(G2)
-                return SG1,SG2,SG1_ret_list,SG2_ret_list,limit_ceil_cmty
+                return SG1_ret_list,SG2_ret_list
 
         if detect_method == cnm.community_cnm:
                 SG1 = transform_networkx_to_snap(G1)
@@ -204,7 +190,7 @@ def community_detect_graph(G1,G2,detect_method = None,limit_ceil_cmty = 1000):
         print "SG1 community size: %d \t SG2 community size :%d " % (len(SG1_ret_list),len(SG2_ret_list))
         print "sample finished,running time :%d mins %d secs" % (int(running_time / 60),int(running_time % 60))
         
-        return SG1,SG2,SG1_ret_list,SG2_ret_list,limit_ceil_cmty
+        return SG1_ret_list,SG2_ret_list
          
         
 def transform_gml_to_networkx(gml_filename):
@@ -651,6 +637,43 @@ def obtain_degree_distribution_list(degree_nodes,ceil_value):
                 
 
 
+def obtain_basic_feature_of_cmty(G,nodes_list,throd,ceil_value):
+    '''
+    1. outdegree of the community
+    2. number of nodes
+    3. number of edges
+    4. maxmiun 10th degree
+    5. average degree of community
+    6. midian degree
+    7. density of community
+    '''
+    feature = []    
+    #obtain the outdegree of the community
+    outdegree = obtain_degree_extern_cmty(G,nodes_list)
+    feature.append(outdegree)
+    feature.append(len(nodes_list))
+
+    #calculate the degree distribution of the nodes
+    degree_nodes,edges = obtain_degree_inter_cmty(G,nodes_list)
+    #2.1 calculate the degree of the nodes in the community 
+    degree_nodes = sorted(degree_nodes,key=lambda x:x[1],reverse = True)
+    degree_list = [item[1] for item in degree_nodes]
+    top_ten_nodes = [item[0] for item in degree_nodes][:10]
+    edges_count = sum(degree_list) / 2
+    feature.append(edges_count)
+    average_degree = float(sum(degree_list))/len(degree_list)       
+    midian_degree = obtain_midian_list(degree_list)
+    feature.append(average_degree)
+    feature.append(midian_degree)
+
+    for i in range(10):
+        feature.append(degree_list[i])
+    
+    #density of the community
+    d = float(2 * edges_count) / (len(nodes_list) *(len(nodes_list) - 1))
+    feature.append(d)
+    return feature,top_ten_nodes
+      
 def obtain_feature_of_cmty_with_degree_distribution(G,nodes_list,throd,ceil_value):
         '''
         obtain the feature of the community
@@ -824,7 +847,8 @@ def merge_small_community(G,rest_small_cmty,new_cmty_list):
         print "merge small community....ok!!"
         return new_cmty_list
 
-def obtain_cmty_feature_array(G,cmty_list,low_threshold,upper_threshold,feature_method = obtain_feature_of_cmty_with_degree_distribution):
+
+def obtain_cmty_feature_array(G,cmty_list,low_threshold,upper_threshold,feature_method = obtain_basic_feature_of_cmty):
         '''
         Return the features of communities in the 'cmty_list' in graph 'G'
 
@@ -851,12 +875,14 @@ def obtain_cmty_feature_array(G,cmty_list,low_threshold,upper_threshold,feature_
         '''     
         print "obtain cmty feature array"
         feature = [] 
+        top_ten_nodes_list = []
         for cmty in cmty_list:
-                temp = feature_method(G,cmty,low_threshold,upper_threshold)
+                temp,top_ten_nodes = feature_method(G,cmty,low_threshold,upper_threshold)
                 temp = normalize_cmty_feature(temp)
                 feature.append(temp)
+                top_ten_nodes_list.append(top_ten_nodes)
         print "obtain cmty feature array finished"
-        return feature
+        return feature,top_ten_nodes_list
 
 def euclidean_metric(sg1_feature_list,sg2_feature_list):
         '''
@@ -909,7 +935,7 @@ def euclidean_distance(sg1_feature_list,sg2_feature_list):
         
                 
 
-def obtain_score_between_features(long_features_list,short_features_list,method = euclidean_metric):
+def obtain_score_between_features(long_features_list,short_features_list,long_short_index = [],method = euclidean_metric):
         '''
         calculate the similarity score between features by algritom specified method
 
@@ -935,15 +961,24 @@ def obtain_score_between_features(long_features_list,short_features_list,method 
                 ]
         
         '''
-        big_feature_list = long_features_list
-        score_list = [[] for i in range(len(big_feature_list))]
-        small_feature_list = short_features_list
+        if long_short_index == []:
+            big_feature_list = long_features_list
+            score_list = [[] for i in range(len(big_feature_list))]
+            small_feature_list = short_features_list
 
-        for index in range(0,len(big_feature_list)):
-                s_feature = big_feature_list[index]
-                for d_feature in small_feature_list:
-                        score = method(s_feature,d_feature)
-                        score_list[index].append(score)
+            for index in range(0,len(big_feature_list)):
+                    s_feature = big_feature_list[index]
+                    for d_feature in small_feature_list:
+                            score = method(s_feature,d_feature)
+                            score_list[index].append(score)
+        else:
+            long_index = [item[0] for item in long_short_index]
+            short_index = [item[1] for item in long_short_index]
+            score_list = []
+            for li in range(len(long_index)):
+                for si in range(len(short_index)):
+                    score = method(long_features_list[long_index[li]],short_features_list[short_index[si]])
+                    score_list.append([long_index[li],short_index[si],score])
         return score_list
 
 def calculate_common_nodes_between_cmties(s_nodes_list,d_nodes_list):
@@ -987,7 +1022,134 @@ def calculate_common_nodes_between_cmties(s_nodes_list,d_nodes_list):
         print "common rate: %.4f" % common_nodes_rate
         return common_nodes_rate, common_nodes_list
 
-def repeated_eavalute_accuracy_by_feature(long_G,short_G,long_cmty_list,short_cmty_list,low_threshold = 50,upper_threshold = 1000,method = euclidean_metric,detect_method = cnm.community_best_partition_with_limit):
+def obtain_most_similar_pairs_of_community(score_list,long_short_index):
+
+    long_index = [item[0] for item in long_short_index]
+    short_index = [item[1] for item in long_short_index]
+    score_list = sorted(score_list,key=lambda x:x[2])
+    print score_list[:10]
+    final_long_index = []
+    final_short_index = []
+    best_similar_value = []
+    number_of_matched = 2
+    for i in score_list: 
+        final_long_index.append(i[0])
+        final_short_index.append(i[1])
+        best_similar_value.append(i[2])
+        number_of_matched -= 1
+        if number_of_matched == 0:
+            break
+    return final_long_index,final_short_index,best_similar_value
+
+def obtain_first_third_of_closest_degree_pairs_communities(long_cmty_features,short_cmty_features,has_matched_pairs_index):
+    long_short_index = []
+    has_matched_long_index = [item[0] for item in has_matched_pairs_index]
+    has_matched_short_index = [item[1] for item in has_matched_pairs_index]
+    long_cmty_index_nodes = [[index,long_cmty_features[index][1]]for index in range(len(long_cmty_features)) if index not in has_matched_long_index]
+    short_cmty_index_nodes = [[index,short_cmty_features[index][1]]for index in range(len(short_cmty_features)) if index not in has_matched_short_index]
+
+    long_cmty_index_nodes = sorted(long_cmty_index_nodes,key=lambda x:x[1],reverse = True)
+    short_cmty_index_nodes = sorted(short_cmty_index_nodes,key=lambda x:x[1],reverse = True)
+
+    length_first_thrid_pairs = int(len(short_cmty_index_nodes) * 0.3)
+
+    if length_first_thrid_pairs == 0:
+        for i in range(len(short_cmty_index_nodes)):
+            long_short_index.append([long_cmty_index_nodes[i][0],short_cmty_index_nodes[i][0]])
+    else:
+        for i in range(length_first_thrid_pairs):
+            long_short_index.append([long_cmty_index_nodes[i][0],short_cmty_index_nodes[i][0]])
+    return long_short_index
+    
+      
+
+def update_features_with_matched_communities(long_G_edges,short_G_edges,long_top_ten_nodes,short_top_ten_nodes,long_features_list,short_features_list,matched_index):
+    has_matched_long_index = [item[0] for item in matched_index]
+    has_matched_short_index = [item[1] for item in matched_index]
+    unmatched_long_index = [i for i in range(len(long_top_ten_nodes)) if i not in has_matched_long_index]
+    unmatched_short_index = [i for i in range(len(short_top_ten_nodes)) if i not in has_matched_short_index]
+    edges_count_list = []  
+    for i in unmatched_long_index:
+        for j in has_matched_long_index:
+            edges_count = obtain_edges_between_nodes(long_G_edges,long_top_ten_nodes[i],long_top_ten_nodes[j])
+            print "from %d to %d has %d"%(j,i,edges_count)
+            edges_count_list.append(edges_count)
+            long_features_list[i].append(edges_count)
+    #normal the new feature
+    #max_value = max(edges_count_list)  
+    #min_value = min(edges_count_list)  
+    #temp = max_value - min_value
+    #for i in range(len(unmatched_long_index)):
+    #    if temp == 0:
+    #        long_features_list[unmatched_long_index[i]].append(float(max_value - edges_count_list[i])/ temp)
+
+    #edges_count_list = []  
+    for i in unmatched_short_index:
+        for j in has_matched_short_index:
+            edges_count = obtain_edges_between_nodes(short_G_edges,short_top_ten_nodes[i],short_top_ten_nodes[j])
+            print "from %d to %d has %d"%(i,j,edges_count)
+            edges_count_list.append(edges_count)
+            short_features_list[i].append(edges_count)
+
+    #max_value = max(edges_count_list)  
+    #min_value = min(edges_count_list)  
+    #temp = max_value - min_value
+    #for i in range(len(unmatched_short_index)):
+    #    short_features_list[unmatched_short_index[i]].append(float(max_value - edges_count_list[i])/ temp)
+    print "after feature update"
+    print long_features_list[unmatched_long_index[0]]
+    print short_features_list[unmatched_short_index[0]]
+    return 0
+
+def obtain_edges_between_nodes(edges_list,source_nodes,dest_nodes):
+    count = 0
+    print "obtain edges between nodes..."
+    for i in source_nodes:
+        for j in dest_nodes:
+            if [i,j] in edges_list:
+                count += 1
+                edges_list.remove([i,j])
+            if [j,i] in edges_list:
+                count += 1
+                edges_list.remove([j,i])
+    print "obtain edges between nodes...over!"
+    return count
+
+def eavalute_accuracy_by_iteration_join_feature(long_G,short_G,long_G_edges,short_G_edges,long_cmty_list,short_cmty_list,low_threshold = 50,upper_threshold = 1000,method = euclidean_metric,detect_method = cnm.community_best_partition_with_limit):
+    # step 1: initialize the basic feature list of communities
+    long_cmty_features,long_top_ten_nodes = obtain_cmty_feature_array(long_G,long_cmty_list,low_threshold,upper_threshold)
+    short_cmty_features,short_top_ten_nodes = obtain_cmty_feature_array(short_G,short_cmty_list,low_threshold,upper_threshold)
+
+    overlap_list = []
+    accuracy_rate = 0
+    matched_index = []
+    matched_count = 0
+    while len(matched_index) < len(short_cmty_list):
+        print "%d pairs communities has matched!!" % len(matched_index)
+        # step 2: get the first third of closest matched pairs of communities
+        long_short_index = obtain_first_third_of_closest_degree_pairs_communities(long_cmty_features,short_cmty_features,matched_index)
+        # step 3: obtain the similar score between the first third matched pairs of communities
+        score_list = obtain_score_between_features(long_cmty_features,short_cmty_features,long_short_index,method = method)
+        # step 4: choose the first pairs of community as the seed matched pairs
+        long_cmty_index,short_cmty_index,similar_value = obtain_most_similar_pairs_of_community(score_list,long_short_index) 
+        for i in range(len(long_cmty_index)):
+            overlap,common_nodes_list = calculate_common_nodes_between_cmties(long_cmty_list[long_cmty_index[i]],short_cmty_list[short_cmty_index[i]]) 
+            matched_index.append([long_cmty_index[i],short_cmty_index[i],common_nodes_list,overlap])
+            overlap_list.append(overlap)
+            print "matched index: %d - %d" % (matched_index[i][0],matched_index[i][1])
+            print "first matched community overlap: %.3f" % overlap
+            print "overlap length: %d"%len(common_nodes_list)
+            if(overlap >= 0.70):
+                matched_count += 1
+                print "matched communities : %d"% matched_count
+        # step 5: add a new feature into the unmatched pairs of communities
+        update_features_with_matched_communities(long_G_edges,short_G_edges,long_top_ten_nodes,short_top_ten_nodes,long_cmty_features,short_cmty_features,matched_index)
+        
+        # step 6: go to step 2 until all communities has matched!
+    accuracy_rate = float(matched_count) / len(matched_index)
+    return accuracy_rate,overlap_list,matched_index
+
+def eavalute_accuracy_by_feature_degree_distribution(long_G,short_G,long_cmty_list,short_cmty_list,low_threshold = 50,upper_threshold = 1000,method = euclidean_metric,detect_method = cnm.community_best_partition_with_limit):
 
     '''
     Return the matched pairs of communities from the 'G1' and 'G2' and calculate the matching accuracy rate between the communities detected by the method specified by 'detect_methond'    
@@ -1039,10 +1201,11 @@ def repeated_eavalute_accuracy_by_feature(long_G,short_G,long_cmty_list,short_cm
     # The type of SG1 and SG2 is the type Snap needs 
     # SG1_ret_list and SG2_ret_list is the result of the detection of graph
 
-    long_cmty_features = obtain_cmty_feature_array(long_G,long_cmty_list,low_threshold,upper_threshold)
-    short_cmty_features = obtain_cmty_feature_array(short_G,short_cmty_list,low_threshold,upper_threshold)
+    long_cmty_features = obtain_cmty_feature_array(long_G,long_cmty_list,low_threshold,upper_threshold,feature_method = obtain_feature_of_cmty_with_degree_distribution)
+    short_cmty_features = obtain_cmty_feature_array(short_G,short_cmty_list,low_threshold,upper_threshold,feature_method = obtain_feature_of_cmty_with_degree_distribution)
 
     score_list = obtain_score_between_features(long_cmty_features,short_cmty_features,method = method)
+    
     accuracy_rate,overlap_list,matched_index = calculate_accuracy_rate_by_feature(long_G,long_cmty_list,short_G,short_cmty_list,score_list,long_cmty_features,short_cmty_features,throd_value = 0.3)
 
     return accuracy_rate,overlap_list,matched_index
@@ -1461,7 +1624,7 @@ def plot_z_score(z_score_list):
 def obtain_community_detection_in_graph(G1,G2,low_threshold,upper_threshold,detect_method = cnm.community_best_partition_with_limit):
         # The type of SG1 and SG2 is the type Snap needs 
         # SG1_ret_list and SG2_ret_list is the result of the detection of graph
-        G1_cmty_list,G1_cmty_list = community_detect_graph(G1,G2,detect_method = detect_method,limit_ceil_cmty=upper_threshold)
+        G1_cmty_list,G2_cmty_list = community_detect_graph(G1,G2,detect_method = detect_method,limit_ceil_cmty=upper_threshold)
 
         G1_new_cmty_list = []
         G2_new_cmty_list = []
@@ -1486,6 +1649,7 @@ def save_graph_community(filename,remarks,sample,low_threshold,upper_threshold):
     df.write("######################################################\n")
     df.write("#date: %s\n" % ti.strftime("%Y-%m-%d %H:%M:%S",ti.localtime(ti.time())))
     df.write("#dataset: %s\n" % (filename))
+    df.write("#remarks: %s\n"%remarks)
     df.write("#sample: %.2f\n" % (sample))
     df.write("#low threshold: %d\n"%low_threshold)
     df.write("#upper threshold: %d\n"%upper_threshold)
@@ -1522,10 +1686,15 @@ def load_graph_with_community(filename):
     G1 = nx.Graph()
     G2 = nx.Graph()
     dataset = ""
+    remarks = ""
     low_threshold = 0
     upper_threshold = 0
     sample = 0
+    G1_edges = []
+    G2_edges = []
     while "#G1:" not in line:
+        if "#remarks: " in line:
+            remarks = line.strip().split(' ')[-1]
         if "#dataset: " in line:
             dataset = line.strip().split(' ')[-1]
         if "#low threshold:" in line:
@@ -1541,6 +1710,7 @@ def load_graph_with_community(filename):
     line = line.strip().split('-')[:-1]
     for item in line:
         item = item.split(' ')
+        G1_edges.append([int(item[0]),int(item[1])])
         G1.add_edge(int(item[0]),int(item[1]))
 
     while "#G2:" not in line:
@@ -1550,6 +1720,7 @@ def load_graph_with_community(filename):
     line = line.strip().split('-')[:-1]
     for item in line:
         item = item.split(' ')
+        G2_edges.append([int(item[0]),int(item[1])])
         G2.add_edge(int(item[0]),int(item[1]))
 
     while "#G1 community" not in line:
@@ -1579,7 +1750,7 @@ def load_graph_with_community(filename):
             tmp.append(int(node))
         G2_community_list.append(tmp)
         line = sf.readline()
-    return G1,G2,G1_community_list,G2_community_list,dataset,sample,low_threshold,upper_threshold
+    return G1,G2,G1_edges,G2_edges,G1_community_list,G2_community_list,dataset,remarks,sample,low_threshold,upper_threshold
 
 
 def main():
@@ -1593,10 +1764,10 @@ def main():
     #=============================================================================#
     #=============================================================================#
     # load the community
-    if len(sys.argv) < 2:
-        print "usage: ./deepmatching_for_cmty.py [filename]"
+    if len(sys.argv) < 3:
+        print "usage: ./deepmatching_for_cmty.py [filename] [community mapping method]"
         return -1
-    G1,G2,G1_community_list,G2_community_list,dataset,sample,low_threshold,upper_threshold = load_graph_with_community(sys.argv[1])
+    G1,G2,G1_edges,G2_edges,G1_community_list,G2_community_list,dataset,remarks,sample,low_threshold,upper_threshold = load_graph_with_community(sys.argv[1])
     print "dataset: %s" % dataset
     print "sample: %f" % sample
     print "low threshold: %d" % low_threshold
@@ -1607,10 +1778,9 @@ def main():
     print "G2: %d nodes and %d edges" %(G2.number_of_nodes(),G2.number_of_edges()) 
     print "G2 community length: %d" % len(G2_community_list)
     print "load graph and community successfully!"
-    long_cmty_list,long_G = (G1_community_list,G1) if len(G1_community_list) >= len(G2_community_list) else (G2_community_list,G2)
-    short_cmty_list,short_G = (G1_community_list,G1) if len(G1_community_list) < len(G2_community_list) else (G2_community_list,G2)
-    filename = "%s_community_matching_result.txt"%(dataset)
-    print "result will be recorded in %s"%filename
+    long_cmty_list,long_G,long_G_edges = (G1_community_list,G1,G1_edges) if len(G1_community_list) >= len(G2_community_list) else (G2_community_list,G2,G2_edges)
+    short_cmty_list,short_G,short_G_edges = (G1_community_list,G1,G1_edges) if len(G1_community_list) < len(G2_community_list) else (G2_community_list,G2,G2_edges)
+    filename = "%s_%s_community_matching_result.txt"%(remarks.split('.')[0],sys.argv[2])
     df = open(filename,"w")
     df.write("########################################################################\n")
     df.write("#date: %s\n" % ti.strftime("%Y-%m-%d %H:%M:%S",ti.localtime(ti.time())))
@@ -1620,18 +1790,21 @@ def main():
     df.write("#low thresholdof the community: %d\n" % low_threshold)
     df.write("#upper thresholdof the community: %d\n" % upper_threshold)
     df.flush()
-    community_accuracy_rate,overlap_list,matched_index = repeated_eavalute_accuracy_by_feature(long_G,short_G,long_cmty_list,short_cmty_list,low_threshold = low_threshold,upper_threshold = upper_threshold)
+    #community_accuracy_rate,overlap_list,matched_index = eavalute_accuracy_by_feature_degree_distribution(long_G,short_G,long_cmty_list,short_cmty_list,low_threshold = low_threshold,upper_threshold = upper_threshold)
+    community_accuracy_rate,overlap_list,matched_index = eavalute_accuracy_by_iteration_join_feature(long_G,short_G,long_G_edges,short_G_edges,long_cmty_list,short_cmty_list,low_threshold = low_threshold,upper_threshold = upper_threshold)
     print "community_accuracy_rate : %.4f" % community_accuracy_rate
     print "overlap rate: "
     print overlap_list
     overlap_list = np.array(overlap_list)
     print "average overlap rate: %.3f" % (overlap_list.mean())
-    df.write("#community mapping accuracy rate: %.3f"%community_accuracy_rate);
-    
-    df.write("#average overlap rate: %.3f"%overlap_list.mean())
-    df.write("#stderr overlap rate: %.3f"%overlap_list.std())
+    df.write("#total number of communities: %d\n"%len(short_cmty_list))
+    df.write("#total matched number of communities: %d\n"%len(matched_index))
+    df.write("#community mapping accuracy rate: %.3f\n"%community_accuracy_rate);
+    df.write("#average overlap rate: %.3f\n"%overlap_list.mean())
+    df.write("#stderr overlap rate: %.3f\n"%overlap_list.std())
     df.write("########################################################################\n")
     df.flush()
+    print "result will be recorded in %s"%filename
 #
 #        for crebility_threshold in [2.0,6.0,10.0]:
 #            df.write("#z score threshold: %0.3f\n"%crebility_threshold)
