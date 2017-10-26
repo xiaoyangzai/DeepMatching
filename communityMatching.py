@@ -672,6 +672,11 @@ def obtain_basic_feature_of_cmty(G,nodes_list,throd,ceil_value):
     #density of the community
     d = float(2 * edges_count) / (len(nodes_list) *(len(nodes_list) - 1))
     feature.append(d)
+
+    #4.calculate betweenness centrality 
+    between_centrality_list = obtain_between_centrality(G,edges)
+    midian_bs = obtain_midian_list(between_centrality_list)
+
     return feature,top_ten_nodes
       
 def obtain_feature_of_cmty_with_degree_distribution(G,nodes_list,throd,ceil_value):
@@ -875,14 +880,16 @@ def obtain_cmty_feature_array(G,cmty_list,low_threshold,upper_threshold,feature_
         '''     
         print "obtain cmty feature array"
         feature = [] 
+        nonormal_feature = []
         top_ten_nodes_list = []
         for cmty in cmty_list:
                 temp,top_ten_nodes = feature_method(G,cmty,low_threshold,upper_threshold)
+                nonormal_feature.append(temp)
                 temp = normalize_cmty_feature(temp)
                 feature.append(temp)
                 top_ten_nodes_list.append(top_ten_nodes)
         print "obtain cmty feature array finished"
-        return feature,top_ten_nodes_list
+        return feature,nonormal_feature,top_ten_nodes_list
 
 def euclidean_metric(sg1_feature_list,sg2_feature_list):
         '''
@@ -935,7 +942,7 @@ def euclidean_distance(sg1_feature_list,sg2_feature_list):
         
                 
 
-def obtain_score_between_features(long_features_list,short_features_list,long_short_index = [],method = euclidean_metric):
+def obtain_score_between_features(long_features_list,short_features_list,long_short_index = None,method = euclidean_metric):
         '''
         calculate the similarity score between features by algritom specified method
 
@@ -961,7 +968,7 @@ def obtain_score_between_features(long_features_list,short_features_list,long_sh
                 ]
         
         '''
-        if long_short_index == []:
+        if long_short_index == None:
             big_feature_list = long_features_list
             score_list = [[] for i in range(len(big_feature_list))]
             small_feature_list = short_features_list
@@ -974,12 +981,12 @@ def obtain_score_between_features(long_features_list,short_features_list,long_sh
         else:
             long_index = [item[0] for item in long_short_index]
             short_index = [item[1] for item in long_short_index]
-            score_list = []
+            score_list = [[] for i in range(len(long_index))]
             for li in range(len(long_index)):
                 for si in range(len(short_index)):
                     score = method(long_features_list[long_index[li]],short_features_list[short_index[si]])
-                    score_list.append([long_index[li],short_index[si],score])
-        return score_list
+                    score_list[li].append(score)
+        return score_list,long_index,short_index
 
 def calculate_common_nodes_between_cmties(s_nodes_list,d_nodes_list):
         '''
@@ -1011,94 +1018,157 @@ def calculate_common_nodes_between_cmties(s_nodes_list,d_nodes_list):
                 if node in big_node_list:
                         common_nodes_list.append(node)
         
-        print "source cmty: ",
-        print s_nodes_list[:8]
-        print "dest cmty: ",
-        print d_nodes_list[:8]
+        #print "source cmty: ",
+        #print s_nodes_list[:8]
+        #print "dest cmty: ",
+        #print d_nodes_list[:8]
         common_count = len(common_nodes_list)
-        print "common nodes count: %d" % common_count
-        print "small length: %d" % len(small_node_list)
+        #print "common nodes count: %d" % common_count
+        #print "small length: %d" % len(small_node_list)
         common_nodes_rate = float(common_count)/total_count 
-        print "common rate: %.4f" % common_nodes_rate
+        #print "common rate: %.4f" % common_nodes_rate
         return common_nodes_rate, common_nodes_list
 
-def obtain_most_similar_pairs_of_community(score_list,long_short_index):
+def obtain_most_similar_pairs_of_community(score_list,long_index,short_index):
+    temp_matched_index = obtain_matched_cmty_index_with_best_matching(score_list)
+    temp_matched_index = sorted(temp_matched_index,key=lambda x:x[2])
+    if len(temp_matched_index) == 0:
+        return [],[],[]
 
-    long_index = [item[0] for item in long_short_index]
-    short_index = [item[1] for item in long_short_index]
-    score_list = sorted(score_list,key=lambda x:x[2])
-    print score_list[:10]
+    trust_matched_index_number = int(len(temp_matched_index)) * 0.5 
     final_long_index = []
     final_short_index = []
     best_similar_value = []
-    number_of_matched = 2
-    for i in score_list: 
-        final_long_index.append(i[0])
-        final_short_index.append(i[1])
-        best_similar_value.append(i[2])
-        number_of_matched -= 1
-        if number_of_matched == 0:
+    if trust_matched_index_number == 0:
+        final_long_index.append(long_index[temp_matched_index[0][0]])
+        final_short_index.append(short_index[temp_matched_index[0][1]])
+        best_similar_value.append(temp_matched_index[0][2])
+        return final_long_index,final_short_index,best_similar_value
+
+    for item in temp_matched_index:
+        final_long_index.append(long_index[item[0]])
+        final_short_index.append(short_index[item[1]])
+        best_similar_value.append(item[2])
+        trust_matched_index_number -= 1
+        if trust_matched_index_number == 0:
             break
+
     return final_long_index,final_short_index,best_similar_value
 
 def obtain_first_third_of_closest_degree_pairs_communities(long_cmty_features,short_cmty_features,has_matched_pairs_index):
     long_short_index = []
     has_matched_long_index = [item[0] for item in has_matched_pairs_index]
     has_matched_short_index = [item[1] for item in has_matched_pairs_index]
-    long_cmty_index_nodes = [[index,long_cmty_features[index][1]]for index in range(len(long_cmty_features)) if index not in has_matched_long_index]
-    short_cmty_index_nodes = [[index,short_cmty_features[index][1]]for index in range(len(short_cmty_features)) if index not in has_matched_short_index]
+    long_cmty_index_nodes = [[index,long_cmty_features[index][2]]for index in range(len(long_cmty_features)) if index not in has_matched_long_index]
+    short_cmty_index_nodes = [[index,short_cmty_features[index][2]]for index in range(len(short_cmty_features)) if index not in has_matched_short_index]
 
     long_cmty_index_nodes = sorted(long_cmty_index_nodes,key=lambda x:x[1],reverse = True)
     short_cmty_index_nodes = sorted(short_cmty_index_nodes,key=lambda x:x[1],reverse = True)
 
-    length_first_thrid_pairs = int(len(short_cmty_index_nodes) * 0.3)
-
-    if length_first_thrid_pairs == 0:
-        for i in range(len(short_cmty_index_nodes)):
-            long_short_index.append([long_cmty_index_nodes[i][0],short_cmty_index_nodes[i][0]])
-    else:
-        for i in range(length_first_thrid_pairs):
-            long_short_index.append([long_cmty_index_nodes[i][0],short_cmty_index_nodes[i][0]])
+    length_first_thrid_pairs = int(len(short_cmty_index_nodes) * 0.5)
+    for i in range(len(short_cmty_index_nodes)):
+        long_short_index.append([long_cmty_index_nodes[i][0],short_cmty_index_nodes[i][0]])
+        length_first_thrid_pairs -= 1
+        if length_first_thrid_pairs <= 0:
+            break
+    print "#################################"
+    print long_short_index
+    print "#################################"
     return long_short_index
-    
-      
 
-def update_features_with_matched_communities(long_G_edges,short_G_edges,long_top_ten_nodes,short_top_ten_nodes,long_features_list,short_features_list,matched_index):
+def obtain_shortest_path_between_nodes(long_G,source_nodes_list,dest_nodes_list):
+    #print "start to compute the shortes path length...."
+    shortest_path_mean_length = []
+    for s in source_nodes_list:
+        s_pathes_list = []
+        for d in dest_nodes_list:
+            s_pathes = nx.shortest_path_length(long_G,s,d)
+            s_pathes_list.append(s_pathes)
+        mean = np.array(s_pathes_list).mean()
+        shortest_path_mean_length.append(mean)
+    #print "shortest path mean length:"
+    #print shortest_path_mean_length
+    #print "start to compute the shortes path length...over!"
+    return shortest_path_mean_length
+        
+def update_features_with_matched_communities(long_G,short_G,long_G_edges,short_G_edges,long_top_ten_nodes,short_top_ten_nodes,long_features_list,short_features_list,matched_index,lastest_matched_index):
+    '''
+    basied the matched pairs of communities as the seed, adding the mean of shotest path lengthes of the top ten nodes sorted by their degree
+    '''
     has_matched_long_index = [item[0] for item in matched_index]
     has_matched_short_index = [item[1] for item in matched_index]
+
+    lastest_matched_long_index = [item[0] for item in lastest_matched_index]
+    lastest_matched_short_index = [item[1] for item in lastest_matched_index]
     unmatched_long_index = [i for i in range(len(long_top_ten_nodes)) if i not in has_matched_long_index]
     unmatched_short_index = [i for i in range(len(short_top_ten_nodes)) if i not in has_matched_short_index]
-    edges_count_list = []  
+
+    sum_shortest_path_list = []  
+    mean_shortest_path_list = []  
     for i in unmatched_long_index:
-        for j in has_matched_long_index:
-            edges_count = obtain_edges_between_nodes(long_G_edges,long_top_ten_nodes[i],long_top_ten_nodes[j])
-            print "from %d to %d has %d"%(j,i,edges_count)
-            edges_count_list.append(edges_count)
-            long_features_list[i].append(edges_count)
+        for j in lastest_matched_long_index:
+            #edges_count = obtain_edges_between_nodes(long_G_edges,long_top_ten_nodes[i],long_top_ten_nodes[j])
+            shortest_path_mean_length = obtain_shortest_path_between_nodes(long_G,long_top_ten_nodes[i],long_top_ten_nodes[j])
+            sum_shortest_path_mean_length = sum(shortest_path_mean_length)
+            mean = np.array(shortest_path_mean_length).mean()
+            sum_shortest_path_list.append(sum_shortest_path_mean_length)
+            mean_shortest_path_list.append(mean)
+            print "%d -> %d:"%(j,i)
+            print shortest_path_mean_length 
+            #long_features_list[i].append(sum_shortest_path_mean_length)
+            #long_features_list[i].append(mean)
+
     #normal the new feature
-    #max_value = max(edges_count_list)  
-    #min_value = min(edges_count_list)  
-    #temp = max_value - min_value
-    #for i in range(len(unmatched_long_index)):
-    #    if temp == 0:
-    #        long_features_list[unmatched_long_index[i]].append(float(max_value - edges_count_list[i])/ temp)
+    max_sum_value = max(sum_shortest_path_list)  
+    min_sum_value = min(sum_shortest_path_list)  
+    sum_temp = max_sum_value - min_sum_value
+    max_mean_value = max(mean_shortest_path_list)
+    min_mean_value = min(mean_shortest_path_list)
+    mean_temp = max_mean_value - min_mean_value
+    for i in range(len(unmatched_long_index)):
+        if sum_temp == 0:
+            long_features_list[unmatched_long_index[i]].append(float(max_sum_value - sum_shortest_path_list[i]))
+        else:
+            long_features_list[unmatched_long_index[i]].append(float(max_sum_value - sum_shortest_path_list[i])/ sum_temp)
+        if mean_temp == 0:
+            long_features_list[unmatched_long_index[i]].append(float(max_mean_value - mean_shortest_path_list[i]))
+        else:
+            long_features_list[unmatched_long_index[i]].append(float(max_mean_value - mean_shortest_path_list[i]))
 
-    #edges_count_list = []  
+
+    sum_shortest_path_list = []  
+    mean_shortest_path_list = []  
     for i in unmatched_short_index:
-        for j in has_matched_short_index:
-            edges_count = obtain_edges_between_nodes(short_G_edges,short_top_ten_nodes[i],short_top_ten_nodes[j])
-            print "from %d to %d has %d"%(i,j,edges_count)
-            edges_count_list.append(edges_count)
-            short_features_list[i].append(edges_count)
+        for j in lastest_matched_short_index:
+            #edges_count = obtain_edges_between_nodes(short_G_edges,short_top_ten_nodes[i],short_top_ten_nodes[j])
+            shortest_path_mean_length = obtain_shortest_path_between_nodes(short_G,short_top_ten_nodes[i],short_top_ten_nodes[j])
+            sum_shortest_path_mean_length = sum(shortest_path_mean_length)
+            mean = np.array(shortest_path_mean_length).mean()
 
-    #max_value = max(edges_count_list)  
-    #min_value = min(edges_count_list)  
-    #temp = max_value - min_value
-    #for i in range(len(unmatched_short_index)):
-    #    short_features_list[unmatched_short_index[i]].append(float(max_value - edges_count_list[i])/ temp)
+            sum_shortest_path_list.append(sum_shortest_path_mean_length)
+            mean_shortest_path_list.append(mean)
+            print "%d -> %d:"%(j,i)
+            print shortest_path_mean_length 
+            #short_features_list[i].append(edges_count)
+    #normal the new feature
+    max_sum_value = max(sum_shortest_path_list)  
+    min_sum_value = min(sum_shortest_path_list)  
+    sum_temp = max_sum_value - min_sum_value
+    max_mean_value = max(mean_shortest_path_list)
+    min_mean_value = min(mean_shortest_path_list)
+    mean_temp = max_mean_value - min_mean_value
+    for i in range(len(unmatched_short_index)):
+        if sum_temp == 0:
+            short_features_list[unmatched_short_index[i]].append(float(max_sum_value - sum_shortest_path_list[i]))
+        else:
+            short_features_list[unmatched_short_index[i]].append(float(max_sum_value - sum_shortest_path_list[i])/ sum_temp)
+        if mean_temp == 0:
+            short_features_list[unmatched_short_index[i]].append(float(max_mean_value - mean_shortest_path_list[i]))
+        else:
+            short_features_list[unmatched_short_index[i]].append(float(max_mean_value - mean_shortest_path_list[i])/ mean_temp)
     print "after feature update"
-    print long_features_list[unmatched_long_index[0]]
-    print short_features_list[unmatched_short_index[0]]
+    #print long_features_list
+    #print short_features_list
     return 0
 
 def obtain_edges_between_nodes(edges_list,source_nodes,dest_nodes):
@@ -1115,39 +1185,58 @@ def obtain_edges_between_nodes(edges_list,source_nodes,dest_nodes):
     print "obtain edges between nodes...over!"
     return count
 
+def show_real_matched_community_pairs(long_cmty_list,short_cmty_list):
+    print "the real matched communities pairs"
+    count = 0
+    for s in range(len(long_cmty_list)):
+        for d in range(len(short_cmty_list)):
+            overlap,common_nodes_list = calculate_common_nodes_between_cmties(long_cmty_list[s],short_cmty_list[d]) 
+            if overlap >= 0.7:
+                print "%d <--> %d : %f\t"%(s,d,overlap),
+                count += 1
+    print "real number of matched communities: %d"%count
+    return 0 
+
 def eavalute_accuracy_by_iteration_join_feature(long_G,short_G,long_G_edges,short_G_edges,long_cmty_list,short_cmty_list,low_threshold = 50,upper_threshold = 1000,method = euclidean_metric,detect_method = cnm.community_best_partition_with_limit):
     # step 1: initialize the basic feature list of communities
-    long_cmty_features,long_top_ten_nodes = obtain_cmty_feature_array(long_G,long_cmty_list,low_threshold,upper_threshold)
-    short_cmty_features,short_top_ten_nodes = obtain_cmty_feature_array(short_G,short_cmty_list,low_threshold,upper_threshold)
+    long_cmty_features,long_cmty_features_nonomal,long_top_ten_nodes = obtain_cmty_feature_array(long_G,long_cmty_list,low_threshold,upper_threshold)
+    short_cmty_features,short_cmty_features_nonormal,short_top_ten_nodes = obtain_cmty_feature_array(short_G,short_cmty_list,low_threshold,upper_threshold)
+    show_real_matched_community_pairs(long_cmty_list,short_cmty_list)
 
     overlap_list = []
     accuracy_rate = 0
     matched_index = []
     matched_count = 0
     while len(matched_index) < len(short_cmty_list):
+        lastest_matchde_index = []
         print "%d pairs communities has matched!!" % len(matched_index)
+        print matched_index 
         # step 2: get the first third of closest matched pairs of communities
-        long_short_index = obtain_first_third_of_closest_degree_pairs_communities(long_cmty_features,short_cmty_features,matched_index)
+        long_short_index = obtain_first_third_of_closest_degree_pairs_communities(long_cmty_features_nonomal,short_cmty_features_nonormal,matched_index)
         # step 3: obtain the similar score between the first third matched pairs of communities
-        score_list = obtain_score_between_features(long_cmty_features,short_cmty_features,long_short_index,method = method)
+
+        score_list,long_index,short_index = obtain_score_between_features(long_cmty_features,short_cmty_features,long_short_index,method = method)
         # step 4: choose the first pairs of community as the seed matched pairs
-        long_cmty_index,short_cmty_index,similar_value = obtain_most_similar_pairs_of_community(score_list,long_short_index) 
-        for i in range(len(long_cmty_index)):
-            overlap,common_nodes_list = calculate_common_nodes_between_cmties(long_cmty_list[long_cmty_index[i]],short_cmty_list[short_cmty_index[i]]) 
-            matched_index.append([long_cmty_index[i],short_cmty_index[i],common_nodes_list,overlap])
+        long_matched_cmty_index,short_matched_cmty_index,similar_value = obtain_most_similar_pairs_of_community(score_list,long_index,short_index) 
+        if long_matched_cmty_index == []:
+            break
+        for i in range(len(long_matched_cmty_index)):
+            overlap,common_nodes_list = calculate_common_nodes_between_cmties(long_cmty_list[long_matched_cmty_index[i]],short_cmty_list[short_matched_cmty_index[i]]) 
+            matched_index.append([long_matched_cmty_index[i],short_matched_cmty_index[i],len(common_nodes_list),overlap])
+            lastest_matchde_index.append([long_matched_cmty_index[i],short_matched_cmty_index[i]])
             overlap_list.append(overlap)
-            print "matched index: %d - %d" % (matched_index[i][0],matched_index[i][1])
-            print "first matched community overlap: %.3f" % overlap
-            print "overlap length: %d"%len(common_nodes_list)
+            #print "matched index: %d - %d" % (long_matched_cmty_index[i],short_matched_cmty_index[i])
+            #print "first matched community overlap: %.3f" % overlap
+            #print "overlap length: %d"%len(common_nodes_list)
             if(overlap >= 0.70):
                 matched_count += 1
                 print "matched communities : %d"% matched_count
         # step 5: add a new feature into the unmatched pairs of communities
-        update_features_with_matched_communities(long_G_edges,short_G_edges,long_top_ten_nodes,short_top_ten_nodes,long_cmty_features,short_cmty_features,matched_index)
+        update_features_with_matched_communities(long_G,short_G,long_G_edges,short_G_edges,long_top_ten_nodes,short_top_ten_nodes,long_cmty_features,short_cmty_features,matched_index,lastest_matchde_index)
         
         # step 6: go to step 2 until all communities has matched!
     accuracy_rate = float(matched_count) / len(matched_index)
-    return accuracy_rate,overlap_list,matched_index
+    return accuracy_rate,overlap_list,matched_index,long_cmty_features,short_cmty_features
 
 def eavalute_accuracy_by_feature_degree_distribution(long_G,short_G,long_cmty_list,short_cmty_list,low_threshold = 50,upper_threshold = 1000,method = euclidean_metric,detect_method = cnm.community_best_partition_with_limit):
 
@@ -1209,6 +1298,53 @@ def eavalute_accuracy_by_feature_degree_distribution(long_G,short_G,long_cmty_li
     accuracy_rate,overlap_list,matched_index = calculate_accuracy_rate_by_feature(long_G,long_cmty_list,short_G,short_cmty_list,score_list,long_cmty_features,short_cmty_features,throd_value = 0.3)
 
     return accuracy_rate,overlap_list,matched_index
+
+def obtain_matched_cmty_index_with_best_matching(score_list):
+    matched_index = []
+    loop_count = len(score_list)  
+    small_cmty_count = len(score_list[0])
+    have_matched_big_new_cmty = {} 
+    for i in range(0,loop_count):
+        #print "**************************************************************"
+        #obtain the similarity list of ith community with all of the other community
+        similarity_list =[(index,score_list[i][index]) for index in range(0,small_cmty_count)]
+        #sort the similiarity of ith community such that obtain the most similar one
+        similarity_list = sorted(similarity_list,key=lambda x:x[1])
+        #print "%d pairs have been matched!!" % len(have_matched_big_new_cmty)           
+        if len(have_matched_big_new_cmty) == small_cmty_count:
+                break
+        while len(similarity_list) > 0:
+                #obtain the similiarity list of the best one similiaried with the ith cmty from big community list
+                best_score = similarity_list[0][1]
+                C_index = similarity_list[0][0]
+                #print "best score: %.5f" % best_score
+                #print "C index: %d"% C_index
+        
+                similarity_list.pop(0)
+                #obtain the community which is most similar to the community specified by C_index
+                dest_similarity_list = []       
+                dest_cmty_index = 0
+                for item in score_list:
+                        #if dest_cmty_index had matched before
+                        if dest_cmty_index in have_matched_big_new_cmty.keys() and have_matched_big_new_cmty[dest_cmty_index] != C_index:
+                                dest_cmty_index += 1
+                                continue
+                        dest_similarity_list.append(item[C_index])
+                        dest_cmty_index += 1
+        
+                dest_similarity_list = sorted(dest_similarity_list)
+                #print dest_similarity_list
+                if best_score > dest_similarity_list[0]:
+                        continue;
+                break
+        #no matched if length of the similiarity list is zero,guasee the firsted matched community is the best one
+        if len(similarity_list) == 0:
+                continue
+        print "best candidate: %d" % C_index
+        #add the index of big cmty 
+        have_matched_big_new_cmty[i] = C_index
+        matched_index.append([i,C_index,score_list[i][C_index]])
+    return matched_index 
 
 
 def calculate_accuracy_rate_by_feature(long_G,long_cmty_list,short_G,short_cmty_list,score_list,long_features_list,short_features_list,throd_value = 0.75):
@@ -1791,7 +1927,25 @@ def main():
     df.write("#upper thresholdof the community: %d\n" % upper_threshold)
     df.flush()
     #community_accuracy_rate,overlap_list,matched_index = eavalute_accuracy_by_feature_degree_distribution(long_G,short_G,long_cmty_list,short_cmty_list,low_threshold = low_threshold,upper_threshold = upper_threshold)
-    community_accuracy_rate,overlap_list,matched_index = eavalute_accuracy_by_iteration_join_feature(long_G,short_G,long_G_edges,short_G_edges,long_cmty_list,short_cmty_list,low_threshold = low_threshold,upper_threshold = upper_threshold)
+    community_accuracy_rate,overlap_list,matched_index,long_cmty_features,short_cmty_features = eavalute_accuracy_by_iteration_join_feature(long_G,short_G,long_G_edges,short_G_edges,long_cmty_list,short_cmty_list,low_threshold = low_threshold,upper_threshold = upper_threshold)
+    
+    df.write("#matched index:")
+    for item in matched_index:
+        df.write("%d-%d-%d-%f "%(item[0],item[1],item[2],item[3]))
+    df.write("\n")
+    df.write("#basic features: outdegree nodes edges top_ten_nodes mean_degree_top_ten_nodes midian_Degree_top_ten density_community\n")
+    for i in range(len(long_cmty_features)):
+        df.write("long community index %d: \n"% i)
+        for item in long_cmty_features[i]:
+            df.write("%.5f "%item)
+        df.write("\n")
+
+    for i in range(len(short_cmty_features)):
+        df.write("short community index %d: \n"% i)
+        for item in short_cmty_features[i]:
+            df.write("%.5f "%item)
+        df.write("\n")
+    print "community_accuracy_rate : %.4f" % community_accuracy_rate
     print "community_accuracy_rate : %.4f" % community_accuracy_rate
     print "overlap rate: "
     print overlap_list
