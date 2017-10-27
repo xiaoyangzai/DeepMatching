@@ -653,12 +653,13 @@ def obtain_basic_feature_of_cmty(G,nodes_list,low_threshold,upper_threshold):
     degree_nodes,edges = obtain_degree_inter_cmty(G,nodes_list)
     #2.1 calculate the degree of the nodes in the community 
     degree_nodes = sorted(degree_nodes,key=lambda x:x[1],reverse = True)
+    
     degree_list = [item[1] for item in degree_nodes]
     edges_count = sum(degree_list) / 2
     feature.append(edges_count)
 
     number_of_top_ten = int(low_threshold)
-    top_ten_nodes = degree_list[:number_of_top_ten]
+    top_ten_nodes = [item[0] for item in degree_nodes][:number_of_top_ten]
     average_degree = float(sum(degree_list))/len(degree_list)       
     midian_degree = obtain_midian_list(degree_list)
 
@@ -1124,12 +1125,13 @@ def update_features_with_matched_communities(long_G,short_G,long_G_edges,short_G
     unmatched_short_index = [i for i in range(len(short_top_ten_nodes)) if i not in has_matched_short_index]
 
     sum_shortest_path_list = []  
+    mean_shortest_path_list = []
     for i in unmatched_long_index:
         for j in lastest_matched_long_index:
             #edges_count = obtain_edges_between_nodes(long_G_edges,long_top_ten_nodes[i],long_top_ten_nodes[j])
             #sum_shortest_path_list.append(edges_count)
 
-            shortest_path_mean_length = obtain_shortest_path_between_nodes(long_G,long_top_ten_nodes[i][:5],long_top_ten_nodes[j][:5])
+            shortest_path_mean_length = obtain_shortest_path_between_nodes(long_G,long_top_ten_nodes[i],long_top_ten_nodes[j])
             sum_shortest_path_mean_length = sum(shortest_path_mean_length)
             mean = np.array(shortest_path_mean_length).mean()
             sum_shortest_path_list.append(sum_shortest_path_mean_length)
@@ -1159,7 +1161,7 @@ def update_features_with_matched_communities(long_G,short_G,long_G_edges,short_G
         for j in lastest_matched_short_index:
             #edges_count = obtain_edges_between_nodes(short_G_edges,short_top_ten_nodes[i],short_top_ten_nodes[j])
             #sum_shortest_path_list.append(edges_count)
-            shortest_path_mean_length = obtain_shortest_path_between_nodes(short_G,short_top_ten_nodes[i][:5],short_top_ten_nodes[j][:5])
+            shortest_path_mean_length = obtain_shortest_path_between_nodes(short_G,short_top_ten_nodes[i],short_top_ten_nodes[j])
             sum_shortest_path_mean_length = sum(shortest_path_mean_length)
             mean = np.array(shortest_path_mean_length).mean()
 
@@ -1291,7 +1293,7 @@ def eavalute_accuracy_by_iteration_join_feature(long_G,short_G,long_G_edges,shor
                 matched_count += 1
                 print "matched communities : %d"% matched_count
         # step 5: add a new feature into the unmatched pairs of communities
-        #update_features_with_matched_communities(long_G,short_G,long_G_edges,short_G_edges,long_top_ten_nodes,short_top_ten_nodes,long_cmty_features,short_cmty_features,matched_index,lastest_matchde_index)
+        update_features_with_matched_communities(long_G,short_G,long_G_edges,short_G_edges,long_top_ten_nodes,short_top_ten_nodes,long_cmty_features,short_cmty_features,matched_index,lastest_matchde_index)
         
         # step 6: go to step 2 until all communities has matched!
     accuracy_rate = float(matched_count) / len(matched_index)
