@@ -1126,14 +1126,14 @@ def update_features_with_matched_communities(long_G,short_G,long_G_edges,short_G
     sum_shortest_path_list = []  
     for i in unmatched_long_index:
         for j in lastest_matched_long_index:
-            edges_count = obtain_edges_between_nodes(long_G_edges,long_top_ten_nodes[i],long_top_ten_nodes[j])
-            sum_shortest_path_list.append(edges_count)
+            #edges_count = obtain_edges_between_nodes(long_G_edges,long_top_ten_nodes[i],long_top_ten_nodes[j])
+            #sum_shortest_path_list.append(edges_count)
 
-            #shortest_path_mean_length = obtain_shortest_path_between_nodes(long_G,long_top_ten_nodes[i][:2],long_top_ten_nodes[j][:2])
-            #sum_shortest_path_mean_length = sum(shortest_path_mean_length)
-            #mean = np.array(shortest_path_mean_length).mean()
-            #sum_shortest_path_list.append(sum_shortest_path_mean_length)
-            #mean_shortest_path_list.append(mean)
+            shortest_path_mean_length = obtain_shortest_path_between_nodes(long_G,long_top_ten_nodes[i][:5],long_top_ten_nodes[j][:5])
+            sum_shortest_path_mean_length = sum(shortest_path_mean_length)
+            mean = np.array(shortest_path_mean_length).mean()
+            sum_shortest_path_list.append(sum_shortest_path_mean_length)
+            mean_shortest_path_list.append(mean)
             #print "%d -> %d:"%(j,i)
             #print shortest_path_mean_length 
             #long_features_list[i].append(sum_shortest_path_mean_length)
@@ -1143,6 +1143,9 @@ def update_features_with_matched_communities(long_G,short_G,long_G_edges,short_G
     max_sum_value = max(sum_shortest_path_list)  
     min_sum_value = min(sum_shortest_path_list)  
     sum_temp = max_sum_value - min_sum_value
+    max_mean_value = max(mean_shortest_path_list)
+    min_mean_value = min(mean_shortest_path_list)
+    mean_temp = max_mean_value - min_mean_value
     for i in range(len(unmatched_long_index)):
         if sum_temp == 0:
             long_features_list[unmatched_long_index[i]].append(float(max_sum_value - sum_shortest_path_list[i]))
@@ -1154,14 +1157,14 @@ def update_features_with_matched_communities(long_G,short_G,long_G_edges,short_G
     mean_shortest_path_list = []  
     for i in unmatched_short_index:
         for j in lastest_matched_short_index:
-            edges_count = obtain_edges_between_nodes(short_G_edges,short_top_ten_nodes[i],short_top_ten_nodes[j])
-            sum_shortest_path_list.append(edges_count)
-            #shortest_path_mean_length = obtain_shortest_path_between_nodes(short_G,short_top_ten_nodes[i][:2],short_top_ten_nodes[j][:2])
-            #sum_shortest_path_mean_length = sum(shortest_path_mean_length)
-            #mean = np.array(shortest_path_mean_length).mean()
+            #edges_count = obtain_edges_between_nodes(short_G_edges,short_top_ten_nodes[i],short_top_ten_nodes[j])
+            #sum_shortest_path_list.append(edges_count)
+            shortest_path_mean_length = obtain_shortest_path_between_nodes(short_G,short_top_ten_nodes[i][:5],short_top_ten_nodes[j][:5])
+            sum_shortest_path_mean_length = sum(shortest_path_mean_length)
+            mean = np.array(shortest_path_mean_length).mean()
 
-            #sum_shortest_path_list.append(sum_shortest_path_mean_length)
-            #mean_shortest_path_list.append(mean)
+            sum_shortest_path_list.append(sum_shortest_path_mean_length)
+            mean_shortest_path_list.append(mean)
             #print "%d -> %d:"%(j,i)
             #print shortest_path_mean_length 
             #short_features_list[i].append(edges_count)
@@ -1169,9 +1172,9 @@ def update_features_with_matched_communities(long_G,short_G,long_G_edges,short_G
     max_sum_value = max(sum_shortest_path_list)  
     min_sum_value = min(sum_shortest_path_list)  
     sum_temp = max_sum_value - min_sum_value
-    #max_mean_value = max(mean_shortest_path_list)
-    #min_mean_value = min(mean_shortest_path_list)
-    #mean_temp = max_mean_value - min_mean_value
+    max_mean_value = max(mean_shortest_path_list)
+    min_mean_value = min(mean_shortest_path_list)
+    mean_temp = max_mean_value - min_mean_value
     for i in range(len(unmatched_short_index)):
         if sum_temp == 0:
             short_features_list[unmatched_short_index[i]].append(float(max_sum_value - sum_shortest_path_list[i]))
