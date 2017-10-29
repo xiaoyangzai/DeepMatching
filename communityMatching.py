@@ -662,10 +662,33 @@ def obtain_basic_feature_of_cmty(G,nodes_list,low_threshold,upper_threshold):
     top_ten_nodes = [item[0] for item in degree_nodes][:number_of_top_ten]
     average_degree = float(sum(degree_list))/len(degree_list)       
     midian_degree = obtain_midian_list(degree_list)
+    average_degree_top_ten = float(sum(degree_list[:number_of_top_ten]))/number_of_top_ten
+    midian_degree_top_ten = obtain_midian_list(degree_list[:number_of_top_ten])
+
+    #3 calculate the triangles distribution
+    max_nodes_list = []
+    for i in range(number_of_top_ten):
+        max_nodes_list.append(degree_nodes[i][0])
+    #triangles_count = obtain_triangles_count(G,max_nodes_list)
+    #triangles = [[key,triangles_count[key]] for key in triangles_count]
+    #triangles = sorted(triangles,key=lambda x:x[1],reverse = True)
+    #triangles_count = [item[0] for item in triangles]
+
+    #feature.append(triangles_count[0])
+    #feature.append(float(sum(triangles_count))/len(triangles_count))
+    #median_triangles = obtain_midian_list(triangles_count)
+    #triangles_distribution = obtain_degree_distribution_list(triangles,upper_threshold)
+    #for k in triangles_distribution:
+    #        feature.append(k)
+
+
 
     #add the max degree,mean and midian
     feature.append(average_degree)
     feature.append(midian_degree)
+    #feature.append(average_degree_top_ten)
+    #feature.append(midian_degree_top_ten)
+
 
     for item in range(number_of_top_ten):
         feature.append(degree_list[item])
@@ -970,15 +993,15 @@ def obtain_score_between_features(long_features_list,short_features_list,long_sh
         '''
         if long_short_index == None:
             big_feature_list = long_features_list
-            #score_list = [[] for i in range(len(big_feature_list))]
-            score_list = []
+            score_list = [[] for i in range(len(big_feature_list))]
             small_feature_list = short_features_list
 
-            for index in range(0,len(big_feature_list)):
+            for index in range(len(big_feature_list)):
                     s_feature = big_feature_list[index]
                     for d_feature in small_feature_list:
                             score = method(s_feature,d_feature)
                             score_list[index].append(score)
+            return score_list
         else:
             long_index = [item[0] for item in long_short_index]
             short_index = [item[1] for item in long_short_index]
@@ -1125,7 +1148,8 @@ def update_features_with_matched_communities(long_G,short_G,long_G_edges,short_G
     unmatched_short_index = [i for i in range(len(short_top_ten_nodes)) if i not in has_matched_short_index]
 
     sum_shortest_path_list = []  
-    mean_shortest_path_list = []
+    #mean_shortest_path_list = []
+    #median_shortest_path_list = []
     for i in unmatched_long_index:
         for j in lastest_matched_long_index:
             #edges_count = obtain_edges_between_nodes(long_G_edges,long_top_ten_nodes[i],long_top_ten_nodes[j])
@@ -1133,9 +1157,11 @@ def update_features_with_matched_communities(long_G,short_G,long_G_edges,short_G
 
             shortest_path_mean_length = obtain_shortest_path_between_nodes(long_G,long_top_ten_nodes[i],long_top_ten_nodes[j])
             sum_shortest_path_mean_length = sum(shortest_path_mean_length)
-            mean = np.array(shortest_path_mean_length).mean()
+            #mean = np.array(shortest_path_mean_length).mean()
             sum_shortest_path_list.append(sum_shortest_path_mean_length)
-            mean_shortest_path_list.append(mean)
+            #mean_shortest_path_list.append(mean)
+            #median = obtain_midian_list(shortest_path_mean_length)
+            #median_shortest_path_list.append(median)
             #print "%d -> %d:"%(j,i)
             #print shortest_path_mean_length 
             #long_features_list[i].append(sum_shortest_path_mean_length)
@@ -1145,28 +1171,44 @@ def update_features_with_matched_communities(long_G,short_G,long_G_edges,short_G
     max_sum_value = max(sum_shortest_path_list)  
     min_sum_value = min(sum_shortest_path_list)  
     sum_temp = max_sum_value - min_sum_value
-    max_mean_value = max(mean_shortest_path_list)
-    min_mean_value = min(mean_shortest_path_list)
-    mean_temp = max_mean_value - min_mean_value
+    #max_mean_value = max(mean_shortest_path_list)
+    #min_mean_value = min(mean_shortest_path_list)
+    #mean_temp = max_mean_value - min_mean_value
+
+    #max_median_value = max(median_shortest_path_list)  
+    #min_median_value = min(median_shortest_path_list)  
+    #median_temp = max_median_value - min_median_value
     for i in range(len(unmatched_long_index)):
         if sum_temp == 0:
             long_features_list[unmatched_long_index[i]].append(float(max_sum_value - sum_shortest_path_list[i]))
         else:
             long_features_list[unmatched_long_index[i]].append(float(max_sum_value - sum_shortest_path_list[i])/ sum_temp)
 
+        #if mean_temp == 0:
+        #    long_features_list[unmatched_long_index[i]].append(float(max_mean_value - mean_shortest_path_list[i]))
+        #else:
+        #    long_features_list[unmatched_long_index[i]].append(float(max_mean_value - mean_shortest_path_list[i])/ mean_temp)
+        #if median_temp == 0:
+        #    long_features_list[unmatched_long_index[i]].append(float(max_median_value - median_shortest_path_list[i]))
+        #else:
+        #    long_features_list[unmatched_long_index[i]].append(float(max_median_value - median_shortest_path_list[i])/ median_temp)
+
 
     sum_shortest_path_list = []  
     mean_shortest_path_list = []  
+    median_shortest_path_list = []
     for i in unmatched_short_index:
         for j in lastest_matched_short_index:
             #edges_count = obtain_edges_between_nodes(short_G_edges,short_top_ten_nodes[i],short_top_ten_nodes[j])
             #sum_shortest_path_list.append(edges_count)
             shortest_path_mean_length = obtain_shortest_path_between_nodes(short_G,short_top_ten_nodes[i],short_top_ten_nodes[j])
             sum_shortest_path_mean_length = sum(shortest_path_mean_length)
-            mean = np.array(shortest_path_mean_length).mean()
+            #mean = np.array(shortest_path_mean_length).mean()
 
             sum_shortest_path_list.append(sum_shortest_path_mean_length)
-            mean_shortest_path_list.append(mean)
+            #mean_shortest_path_list.append(mean)
+            #median = obtain_midian_list(shortest_path_mean_length)
+            #median_shortest_path_list.append(median)
             #print "%d -> %d:"%(j,i)
             #print shortest_path_mean_length 
             #short_features_list[i].append(edges_count)
@@ -1174,9 +1216,12 @@ def update_features_with_matched_communities(long_G,short_G,long_G_edges,short_G
     max_sum_value = max(sum_shortest_path_list)  
     min_sum_value = min(sum_shortest_path_list)  
     sum_temp = max_sum_value - min_sum_value
-    max_mean_value = max(mean_shortest_path_list)
-    min_mean_value = min(mean_shortest_path_list)
-    mean_temp = max_mean_value - min_mean_value
+    #max_mean_value = max(mean_shortest_path_list)
+    #min_mean_value = min(mean_shortest_path_list)
+    #mean_temp = max_mean_value - min_mean_value
+    #max_median_value = max(median_shortest_path_list)  
+    #min_median_value = min(median_shortest_path_list)  
+    #median_temp = max_median_value - min_median_value
     for i in range(len(unmatched_short_index)):
         if sum_temp == 0:
             short_features_list[unmatched_short_index[i]].append(float(max_sum_value - sum_shortest_path_list[i]))
@@ -1186,6 +1231,10 @@ def update_features_with_matched_communities(long_G,short_G,long_G_edges,short_G
         #    short_features_list[unmatched_short_index[i]].append(float(max_mean_value - mean_shortest_path_list[i]))
         #else:
         #    short_features_list[unmatched_short_index[i]].append(float(max_mean_value - mean_shortest_path_list[i])/ mean_temp)
+        #if median_temp == 0:
+        #    short_features_list[unmatched_short_index[i]].append(float(max_median_value - median_shortest_path_list[i]))
+        #else:
+        #    short_features_list[unmatched_short_index[i]].append(float(max_median_value - median_shortest_path_list[i])/ median_temp)
     print "after feature update"
     #print long_features_list
     #print short_features_list
@@ -1260,8 +1309,8 @@ def obtain_main_feature(long_cmty_features,short_cmty_features,matched_index):
 
 def eavalute_accuracy_by_iteration_join_feature(long_G,short_G,long_G_edges,short_G_edges,long_cmty_list,short_cmty_list,low_threshold = 50,upper_threshold = 1000,method = euclidean_metric,detect_method = cnm.community_best_partition_with_limit):
     # step 1: initialize the basic feature list of communities
-    long_cmty_features,long_cmty_features_nonomal,long_top_ten_nodes = obtain_cmty_feature_array(long_G,long_cmty_list,low_threshold,upper_threshold)
-    short_cmty_features,short_cmty_features_nonormal,short_top_ten_nodes = obtain_cmty_feature_array(short_G,short_cmty_list,low_threshold,upper_threshold)
+    long_cmty_features,long_cmty_features_nonomal,long_top_ten_nodes = obtain_cmty_feature_array(long_G,long_cmty_list,low_threshold,upper_threshold,obtain_basic_feature_of_cmty)
+    short_cmty_features,short_cmty_features_nonormal,short_top_ten_nodes = obtain_cmty_feature_array(short_G,short_cmty_list,low_threshold,upper_threshold,obtain_basic_feature_of_cmty)
 
     overlap_list = []
     accuracy_rate = 0
@@ -1273,6 +1322,7 @@ def eavalute_accuracy_by_iteration_join_feature(long_G,short_G,long_G_edges,shor
         print matched_index 
         # step 2: get the first third of closest matched pairs of communities
         main_feature_index = obtain_main_feature(long_cmty_features_nonomal,short_cmty_features_nonormal,matched_index)
+        #main_feature_index = 1
         long_short_index = obtain_first_third_of_closest_degree_pairs_communities(long_cmty_features_nonomal,short_cmty_features_nonormal,matched_index,main_feature_index)
         # step 3: obtain the similar score between the first third matched pairs of communities
 
@@ -1289,7 +1339,7 @@ def eavalute_accuracy_by_iteration_join_feature(long_G,short_G,long_G_edges,shor
             #print "matched index: %d - %d" % (long_matched_cmty_index[i],short_matched_cmty_index[i])
             #print "first matched community overlap: %.3f" % overlap
             #print "overlap length: %d"%len(common_nodes_list)
-            if(overlap >= 0.70):
+            if(overlap >= 0.50):
                 matched_count += 1
                 print "matched communities : %d"% matched_count
         # step 5: add a new feature into the unmatched pairs of communities
@@ -1351,14 +1401,16 @@ def eavalute_accuracy_by_feature_degree_distribution(long_G,short_G,long_cmty_li
     # The type of SG1 and SG2 is the type Snap needs 
     # SG1_ret_list and SG2_ret_list is the result of the detection of graph
 
-    long_cmty_features = obtain_cmty_feature_array(long_G,long_cmty_list,low_threshold,upper_threshold,feature_method = obtain_feature_of_cmty_with_degree_distribution)
-    short_cmty_features = obtain_cmty_feature_array(short_G,short_cmty_list,low_threshold,upper_threshold,feature_method = obtain_feature_of_cmty_with_degree_distribution)
+    long_cmty_features,long_cmty_features_nonomal,long_top_ten_nodes = obtain_cmty_feature_array(long_G,long_cmty_list,low_threshold,upper_threshold,feature_method = obtain_feature_of_cmty_with_degree_distribution)
+    short_cmty_features,short_cmty_features_nonormal,short_top_ten_nodes = obtain_cmty_feature_array(short_G,short_cmty_list,low_threshold,upper_threshold,feature_method = obtain_feature_of_cmty_with_degree_distribution)
+    print "long : %d" % len(long_cmty_features)
+    print "short : %d" % len(short_cmty_features)
 
     score_list = obtain_score_between_features(long_cmty_features,short_cmty_features,method = method)
     
-    accuracy_rate,overlap_list,matched_index = calculate_accuracy_rate_by_feature(long_G,long_cmty_list,short_G,short_cmty_list,score_list,long_cmty_features,short_cmty_features,throd_value = 0.3)
+    accuracy_rate,overlap_list,matched_index = calculate_accuracy_rate_by_feature(long_G,long_cmty_list,short_G,short_cmty_list,score_list,long_cmty_features,short_cmty_features,throd_value = 0.7)
 
-    return accuracy_rate,overlap_list,matched_index
+    return accuracy_rate,overlap_list,matched_index,long_cmty_features_nonomal,short_cmty_features_nonormal
 
 def obtain_matched_cmty_index_with_best_matching(score_list):
     matched_index = []
@@ -1822,6 +1874,8 @@ def obtain_community_detection_in_graph(G1,G2,low_threshold,upper_threshold,dete
         # The type of SG1 and SG2 is the type Snap needs 
         # SG1_ret_list and SG2_ret_list is the result of the detection of graph
         G1_cmty_list,G2_cmty_list = community_detect_graph(G1,G2,detect_method = detect_method,limit_ceil_cmty=upper_threshold)
+        print "G1 original length: %d"%len(G1_cmty_list)
+        print "G2 original length: %d"%len(G1_cmty_list)
 
         G1_new_cmty_list = []
         G2_new_cmty_list = []
@@ -1923,7 +1977,6 @@ def load_graph_with_community(filename):
     while "#G1 community" not in line:
         line = sf.readline()
     length_G1_community = int(line.strip().split(" ")[-1])
-    print "lentth G1 community: %d"%length_G1_community
     G1_community_list = []
     line = sf.readline()
     for i in range(length_G1_community):
@@ -1937,7 +1990,6 @@ def load_graph_with_community(filename):
     while "#G2 community" not in line:
         line = sf.readline()
     length_G2_community = int(line.strip().split(" ")[-1])
-    print "lentth G2 community: %d"%length_G2_community
     G2_community_list = []
     line = sf.readline()
     for i in range(length_G2_community):
@@ -1956,11 +2008,11 @@ def main():
     #if len(sys.argv) < 6:
     #        print "usage: ./deepmatching_for_cmty.py [filename] [sample] [low_threshold] [upper_threshold] [remarks]"
     #        return -1
-    #
     #save_graph_community(sys.argv[1],sys.argv[5],float(sys.argv[2]),int(sys.argv[3]),int(sys.argv[4]))
     #=============================================================================#
     #=============================================================================#
     # load the community
+
     if len(sys.argv) < 3:
         print "usage: ./deepmatching_for_cmty.py [filename] [community mapping method]"
         return -1
@@ -1995,7 +2047,7 @@ def main():
         df.write("%d %d %.5f"%(item[0],item[1],item[2]))
         df.write("-")
     df.write("\n")
-    #community_accuracy_rate,overlap_list,matched_index = eavalute_accuracy_by_feature_degree_distribution(long_G,short_G,long_cmty_list,short_cmty_list,low_threshold = low_threshold,upper_threshold = upper_threshold)
+    #community_accuracy_rate,overlap_list,matched_index,long_cmty_features,short_cmty_features = eavalute_accuracy_by_feature_degree_distribution(long_G,short_G,long_cmty_list,short_cmty_list,low_threshold = low_threshold,upper_threshold = upper_threshold)
     community_accuracy_rate,overlap_list,matched_index,long_cmty_features,short_cmty_features = eavalute_accuracy_by_iteration_join_feature(long_G,short_G,long_G_edges,short_G_edges,long_cmty_list,short_cmty_list,low_threshold = low_threshold,upper_threshold = upper_threshold)
     
     df.write("#matched index:")
