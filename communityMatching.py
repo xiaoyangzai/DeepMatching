@@ -659,6 +659,7 @@ def obtain_basic_feature_of_cmty(G,nodes_list,low_threshold,upper_threshold):
     feature.append(edges_count)
 
     number_of_top_ten = int(low_threshold)
+    #number_of_top_ten = int(len(nodes_list) * 0.5)
     top_ten_nodes = [item[0] for item in degree_nodes][:number_of_top_ten]
     average_degree = float(sum(degree_list))/len(degree_list)       
     midian_degree = obtain_midian_list(degree_list)
@@ -669,18 +670,6 @@ def obtain_basic_feature_of_cmty(G,nodes_list,low_threshold,upper_threshold):
     max_nodes_list = []
     for i in range(number_of_top_ten):
         max_nodes_list.append(degree_nodes[i][0])
-    #triangles_count = obtain_triangles_count(G,max_nodes_list)
-    #triangles = [[key,triangles_count[key]] for key in triangles_count]
-    #triangles = sorted(triangles,key=lambda x:x[1],reverse = True)
-    #triangles_count = [item[0] for item in triangles]
-
-    #feature.append(triangles_count[0])
-    #feature.append(float(sum(triangles_count))/len(triangles_count))
-    #median_triangles = obtain_midian_list(triangles_count)
-    #triangles_distribution = obtain_degree_distribution_list(triangles,upper_threshold)
-    #for k in triangles_distribution:
-    #        feature.append(k)
-
 
 
     #add the max degree,mean and midian
@@ -1054,27 +1043,75 @@ def calculate_common_nodes_between_cmties(s_nodes_list,d_nodes_list):
         #print "common rate: %.4f" % common_nodes_rate
         return common_nodes_rate, common_nodes_list
 
-def obtain_most_similar_pairs_of_community(score_list,long_index,short_index):
-    #new_score_list = np.array(score_list)
-    #best_similar_list = np.where(new_score_list == np.min(new_score_list))
-    #final_long_index = [long_index[item] for item in best_similar_list[0]]
-    #final_short_index = [short_index[item] for item in best_similar_list[1]]
-    #best_similar_value = []
-    #for i in range(len(final_short_index)):
-    #    best_similar_value.append(np.min(new_score_list))
+def identify_most_similar_communities_with_z_score(long_G,short_G,long_cmty_list,short_cmty_list,long_index,short_index,matched_index):
+    '''
+    Returns
+    --------
+    crebiliable_matched_index : List
+        the crebiliable pairs of index of matched communities identified by z_score
+        [[long_cmty_index,short_cmty_index,z_score],.....]
+    global_seeds_of_nodes : List
+        the pairs of index of nodes between the matched communites identified by z_score
+        [[long_node1,short_node2],[long_node12,short_node5],...]
+    '''
+    crebiliable_matched_index = []
+    global_seeds_of_nodes_list = []
+    for item in matched_index:
+        global_seeds_nodes = []
+        matched_long_cmty_index = long_index[item[0]]
+        matched_short_cmty_index = short_index[item[0]]
+
+        #step 1: bipartite matching that gets the first matched nodes between each pairs of communities  
+        G1 = long_G.subgraph(long_cmty_list[matched_long_cmty_index])
+        G2 = short_G.subgraph(short_cmty_list[matched_long_cmty_index])
+        #judge the small number of nodes of graph
+        small_original_graph,small_G = (long_G,G1) if G1.order() <= G2.order() else (short_G,G2)
+        big_original_graph,big_G = (long_G,G1) if G1.order() > G2.order() else (short_G,G2)
+        bipartite_matched_nodes = dm.bipartite_matching(small_G,big_G)
+
+        #step 2: calculate the z_score cribility and obtain the crebiliable matched nodes
+        #pre-process stage: seed nodes detection
+        pre_process_seeds,pre_process_seeds_count,pre_process_seeds_accuracy_rate,z_score = obtain_seed_with_edges_credibility(bipartite_matched_nodes,small_G,big_G)
+
+        if small_original_graph == long_G:
+            for i in pre_process_list:
+                global_seeds_nodes.append(i)
+        else:
+            for i in pre_process_list:
+                global_seeds_nodes.append([i[1],i[0]])
+        global_seeds_of_nodes_list.append(global_seeds_of_nodes)
+        crebiliable_matched_index.append([matched_long_cmty_index,matched_short_cmty_index,z_score])
+    
+    return crebiliable_matched_index,global_seeds_of_nodes_list
 
 
-
+def obtain_most_similar_pairs_of_community(long_G,short_G,long_cmty_list,long_cmty_list,score_list,long_index,short_index,identify_method = None): 
+    # get the matched pairs of communities with score list
     temp_matched_index = obtain_matched_cmty_index_with_best_matching(score_list)
-    temp_matched_index = sorted(temp_matched_index,key=lambda x:x[2])
-
     if len(temp_matched_index) == 0:
-        return [],[],[]
+        return [],[],[],[]
 
-    #trust_matched_index_number = int(len(temp_matched_index) * 0.5) 
     trust_matched_index_number = 1 
     final_long_index = []
     final_short_index = []
+    best_z_score_list= []
+    crebiliable_global_seeds_nodes = []
+    if identify_method == z_score:
+        temp_matched_index,global_seeds_of_nodes_list = identify_most_similar_communities_with_z_score(long_G,short_G,long_cmty_list,short_cmty_list,long_index,short_index,temp_matched_index)
+        temp_matched_index = [[temp_matched_index[i][0],temp_matched_index[i][1],temp_matched_index[i][2],i] for i in range(len(temp_matched_index))]
+        temp_matched_index = sorted(temp_matched_index,key=lambda x:x[2])
+        for item in temp_matched_index:
+            final_long_index.append(item[0])
+            final_short_index.append(item[1])
+            best_z_score_list.append(item[2])
+            crebiliable_global_seeds_nodes.append(global_seeds_of_nodes_list[item[3]])
+            trust_matched_index_number -= 1
+            if trust_matched_index_number <= 0:
+                break
+        return final_long_index,final_short_index,best_z_score_list,crebiliable_global_seeds_nodes
+
+    temp_matched_index = sorted(temp_matched_index,key=lambda x:x[2])
+    #trust_matched_index_number = int(len(temp_matched_index) * 0.5) 
     best_similar_value = []
     if trust_matched_index_number == 0:
         final_long_index.append(long_index[temp_matched_index[0][0]])
@@ -1328,7 +1365,7 @@ def eavalute_accuracy_by_iteration_join_feature(long_G,short_G,long_G_edges,shor
 
         score_list,long_index,short_index = obtain_score_between_features(long_cmty_features,short_cmty_features,long_short_index,method = method)
         # step 4: choose the first pairs of community as the seed matched pairs
-        long_matched_cmty_index,short_matched_cmty_index,similar_value = obtain_most_similar_pairs_of_community(score_list,long_index,short_index) 
+        long_matched_cmty_index,short_matched_cmty_index,best_z_score_list,crebiliable_global_seeds_nodes = obtain_most_similar_pairs_of_community(long_G,short_G,long_cmty_list,long_cmty_list,score_list,long_index,short_index,identify_method = z_score) 
         if long_matched_cmty_index == []:
             break
         for i in range(len(long_matched_cmty_index)):

@@ -57,7 +57,7 @@ def mapping_credibility(matches, G1, G2):
     cred = (seed_edge_consistency - m) / s
     return cred
 
-def obtain_seed_with_edges_credibility(matches,G1,G2,real_common_nodes,left_index,right_index,loop_index = 0):
+def obtain_seed_with_edges_credibility(matches,G1,G2,real_common_nodes):
 	seed_nodes_list = maximum_consistency_matches(matches,G1,G2) 		
 	if len(seed_nodes_list) == 0:
 		return seed_nodes_list,0,0,0
