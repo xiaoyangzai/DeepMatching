@@ -1085,21 +1085,27 @@ def identify_most_similar_communities_with_z_score(long_G,short_G,long_cmty_list
     return crebiliable_matched_index,global_seeds_of_nodes_list
 
 
-def obtain_most_similar_pairs_of_community(long_G,short_G,long_cmty_list,long_cmty_list,score_list,long_index,short_index,identify_method = None): 
+def obtain_most_similar_pairs_of_community(long_G,short_G,long_cmty_list,short_cmty_list,score_list,long_index,short_index,identify_method = None): 
     # get the matched pairs of communities with score list
     temp_matched_index = obtain_matched_cmty_index_with_best_matching(score_list)
     if len(temp_matched_index) == 0:
         return [],[],[],[]
 
+    print "#################################"
+    print "candidate index of communities"
+    print temp_matched_index 
+    print "#################################"
     trust_matched_index_number = 1 
     final_long_index = []
     final_short_index = []
     best_z_score_list= []
     crebiliable_global_seeds_nodes = []
-    if identify_method == z_score:
+    if identify_method == "z_score":
+        print "calculate the z_score of each pairs communities in candidate list...."
         temp_matched_index,global_seeds_of_nodes_list = identify_most_similar_communities_with_z_score(long_G,short_G,long_cmty_list,short_cmty_list,long_index,short_index,temp_matched_index)
         temp_matched_index = [[temp_matched_index[i][0],temp_matched_index[i][1],temp_matched_index[i][2],i] for i in range(len(temp_matched_index))]
         temp_matched_index = sorted(temp_matched_index,key=lambda x:x[2])
+        print "calculate the z_score of each pairs communities in candidate list.... ok!"
         for item in temp_matched_index:
             final_long_index.append(item[0])
             final_short_index.append(item[1])
@@ -1144,17 +1150,17 @@ def obtain_first_third_of_closest_degree_pairs_communities(long_cmty_features,sh
 
     long_cmty_index_nodes = sorted(long_cmty_index_nodes,key=lambda x:x[1],reverse = True)
     short_cmty_index_nodes = sorted(short_cmty_index_nodes,key=lambda x:x[1],reverse = True)
-    length_first_thrid_pairs = math.ceil(len(short_cmty_index_nodes) * 0.5)
+    length_first_thrid_pairs = math.ceil(len(short_cmty_index_nodes) * 0.3)
     
     for i in range(len(short_cmty_index_nodes)):
         long_short_index.append([long_cmty_index_nodes[i][0],short_cmty_index_nodes[i][0]])
         length_first_thrid_pairs -= 1
         if length_first_thrid_pairs <= 0:
             break
-    print "#################################"
-    print "candidate index of communities"
-    print long_short_index
-    print "#################################"
+    #print "#################################"
+    #print "candidate index of communities"
+    #print long_short_index
+    #print "#################################"
     return long_short_index
 
 def obtain_shortest_path_between_nodes(long_G,source_nodes_list,dest_nodes_list):
@@ -1344,15 +1350,15 @@ def obtain_main_feature(long_cmty_features,short_cmty_features,matched_index):
         print "The main features: the other features"
     return index
 
-def eavalute_accuracy_by_iteration_join_feature(long_G,short_G,long_G_edges,short_G_edges,long_cmty_list,short_cmty_list,low_threshold = 50,upper_threshold = 1000,method = euclidean_metric,detect_method = cnm.community_best_partition_with_limit):
+def eavalute_accuracy_by_iteration_join_feature(long_G,short_G,long_G_edges,short_G_edges,long_cmty_list,short_cmty_list,low_threshold,upper_threshold = 1000,method = euclidean_metric,detect_method = cnm.community_best_partition_with_limit):
     # step 1: initialize the basic feature list of communities
     long_cmty_features,long_cmty_features_nonomal,long_top_ten_nodes = obtain_cmty_feature_array(long_G,long_cmty_list,low_threshold,upper_threshold,obtain_basic_feature_of_cmty)
     short_cmty_features,short_cmty_features_nonormal,short_top_ten_nodes = obtain_cmty_feature_array(short_G,short_cmty_list,low_threshold,upper_threshold,obtain_basic_feature_of_cmty)
 
     overlap_list = []
-    accuracy_rate = 0
     matched_index = []
-    matched_count = 0
+    community_matched_count = 0
+    crebiliable_global_seeds_nodes_list = []
     while len(matched_index) < len(short_cmty_list):
         lastest_matchde_index = []
         print "%d pairs communities has matched!!" % len(matched_index)
@@ -1365,9 +1371,13 @@ def eavalute_accuracy_by_iteration_join_feature(long_G,short_G,long_G_edges,shor
 
         score_list,long_index,short_index = obtain_score_between_features(long_cmty_features,short_cmty_features,long_short_index,method = method)
         # step 4: choose the first pairs of community as the seed matched pairs
-        long_matched_cmty_index,short_matched_cmty_index,best_z_score_list,crebiliable_global_seeds_nodes = obtain_most_similar_pairs_of_community(long_G,short_G,long_cmty_list,long_cmty_list,score_list,long_index,short_index,identify_method = z_score) 
+        long_matched_cmty_index,short_matched_cmty_index,best_z_score_list,crebiliable_global_seeds_nodes = obtain_most_similar_pairs_of_community(long_G,short_G,long_cmty_list,long_cmty_list,score_list,long_index,short_index,identify_method = "z_score") 
         if long_matched_cmty_index == []:
             break
+        #collect the global seeds nodes
+        for item in crebiliable_global_seeds_nodes:
+            crebiliable_global_seeds_nodes_list.extend(item)
+            print "The number of global seeds nodes: %d" % len(crebiliable_global_seeds_nodes_list)
         for i in range(len(long_matched_cmty_index)):
             overlap,common_nodes_list = calculate_common_nodes_between_cmties(long_cmty_list[long_matched_cmty_index[i]],short_cmty_list[short_matched_cmty_index[i]]) 
             matched_index.append([long_matched_cmty_index[i],short_matched_cmty_index[i],len(common_nodes_list),overlap])
@@ -1377,14 +1387,14 @@ def eavalute_accuracy_by_iteration_join_feature(long_G,short_G,long_G_edges,shor
             #print "first matched community overlap: %.3f" % overlap
             #print "overlap length: %d"%len(common_nodes_list)
             if(overlap >= 0.50):
-                matched_count += 1
-                print "matched communities : %d"% matched_count
+                community_matched_count += 1
+                print "matched communities : %d"% community_matched_count
         # step 5: add a new feature into the unmatched pairs of communities
         update_features_with_matched_communities(long_G,short_G,long_G_edges,short_G_edges,long_top_ten_nodes,short_top_ten_nodes,long_cmty_features,short_cmty_features,matched_index,lastest_matchde_index)
-        
-        # step 6: go to step 2 until all communities has matched!
-    accuracy_rate = float(matched_count) / len(matched_index)
-    return accuracy_rate,overlap_list,matched_index,long_cmty_features_nonomal,short_cmty_features_nonormal
+    
+    #propagation step with the global seeds collected each itration
+    refine_match_nodes,refine_real_matched_nodes_count,refine_rate = match_propagation(crebiliable_global_seeds_nodes_list,long_G,short_G)
+    return community_matched_count,len(matched_index),overlap_list,matched_index,long_cmty_features_nonomal,short_cmty_features_nonormal,refine_real_matched_nodes_count,len(refine_match_nodes)
 
 def eavalute_accuracy_by_feature_degree_distribution(long_G,short_G,long_cmty_list,short_cmty_list,low_threshold = 50,upper_threshold = 1000,method = euclidean_metric,detect_method = cnm.community_best_partition_with_limit):
 
@@ -1944,12 +1954,12 @@ def save_graph_community(filename,remarks,sample,low_threshold,upper_threshold):
     df.write("#G1 %d nodes and %d edges\n"%(G1.number_of_nodes(),G1.number_of_edges()))
     df.write("#G2 %d nodes and %d edges\n"%(G2.number_of_nodes(),G2.number_of_edges()))
 
-    G1_all_edges = [e for e in G1.edges]
+    G1_all_edges = [e for e in G1.edges()]
     df.write("#G1:")
     for item in G1_all_edges:
         df.write("%d %d-"%(item[0],item[1]))
     df.write("\n")
-    G2_all_edges = [e for e in G2.edges]
+    G2_all_edges = [e for e in G2.edges()]
     df.write("#G2:")
     for item in G2_all_edges:
         df.write("%d %d-"%(item[0],item[1]))
@@ -2049,9 +2059,8 @@ def main():
     #=============================================================================#
     #=============================================================================#
     # load the community
-
     if len(sys.argv) < 3:
-        print "usage: ./deepmatching_for_cmty.py [filename] [community mapping method]"
+        print "usage: ./deepmatching_for_cmty.py [filename] [result filename]"
         return -1
     G1,G2,G1_edges,G2_edges,G1_community_list,G2_community_list,dataset,remarks,sample,low_threshold,upper_threshold = load_graph_with_community(sys.argv[1])
     print "dataset: %s" % dataset
@@ -2085,7 +2094,7 @@ def main():
         df.write("-")
     df.write("\n")
     #community_accuracy_rate,overlap_list,matched_index,long_cmty_features,short_cmty_features = eavalute_accuracy_by_feature_degree_distribution(long_G,short_G,long_cmty_list,short_cmty_list,low_threshold = low_threshold,upper_threshold = upper_threshold)
-    community_accuracy_rate,overlap_list,matched_index,long_cmty_features,short_cmty_features = eavalute_accuracy_by_iteration_join_feature(long_G,short_G,long_G_edges,short_G_edges,long_cmty_list,short_cmty_list,low_threshold = low_threshold,upper_threshold = upper_threshold)
+    community_matched_count,total_community_matched_count,overlap_list,matched_index,long_cmty_features,short_cmty_features,refine_matched_nodes_count,total_refine_matched_nodes_count = eavalute_accuracy_by_iteration_join_feature(long_G,short_G,long_G_edges,short_G_edges,long_cmty_list,short_cmty_list,low_threshold = low_threshold,upper_threshold = upper_threshold)
     
     df.write("#matched index:")
     for item in matched_index:
@@ -2104,16 +2113,19 @@ def main():
             df.write("%.5f "%item)
         df.write("\n")
     print "community_accuracy_rate : %.4f" % community_accuracy_rate
-    print "community_accuracy_rate : %.4f" % community_accuracy_rate
     print "overlap rate: "
     print overlap_list
     overlap_list = np.array(overlap_list)
     print "average overlap rate: %.3f" % (overlap_list.mean())
     df.write("#total number of communities: %d\n"%len(short_cmty_list))
     df.write("#total matched number of communities: %d\n"%len(matched_index))
-    df.write("#community mapping accuracy rate: %.3f\n"%community_accuracy_rate);
+    df.write("#real matched communities: %d"%community_matched_count)
+    df.write("#community mapping accuracy rate: %.3f\n"%(float(community_matched_count)/total_community_matched_count))
     df.write("#average overlap rate: %.3f\n"%overlap_list.mean())
     df.write("#stderr overlap rate: %.3f\n"%overlap_list.std())
+    df.write("#total number of refine nodes: %d"%total_refine_matched_nodes_count)
+    df.write("#real matched refine nodes: %d"%refine_matched_nodes_count)
+    df.write("refine mapping accuracy rate: %.3f"%(float(refine_matched_nodes_count)/total_refine_matched_nodes_count))
     df.write("########################################################################\n")
     df.flush()
     print "result will be recorded in %s"%filename
