@@ -13,11 +13,10 @@ def match_propagation(matches, G1, G2):
 	'''
 	Seeds = [item for item in matches]
 	#Seeds = matches
-	deg1 = G1.degree
-	deg2 = G2.degree
-
-	maxD1 = max([deg for node, deg in deg1])
-	maxD2 = max([deg for node, deg in deg2])
+	deg1 = G1.degree()
+	deg2 = G2.degree()
+	maxD1 = max([deg1[key] for key in deg1])
+	maxD2 = max([deg2[key] for key in deg2])
 	maxD = max(maxD1, maxD2)
 
 	rest_matches = []

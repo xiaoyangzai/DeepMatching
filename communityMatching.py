@@ -659,7 +659,6 @@ def obtain_basic_feature_of_cmty(G,nodes_list,low_threshold,upper_threshold):
     feature.append(edges_count)
 
     number_of_top_ten = int(low_threshold)
-    #number_of_top_ten = int(len(nodes_list) * 0.5)
     top_ten_nodes = [item[0] for item in degree_nodes][:number_of_top_ten]
     average_degree = float(sum(degree_list))/len(degree_list)       
     midian_degree = obtain_midian_list(degree_list)
@@ -1074,12 +1073,12 @@ def identify_most_similar_communities_with_z_score(long_G,short_G,long_cmty_list
         pre_process_seeds,pre_process_seeds_count,pre_process_seeds_accuracy_rate,z_score = obtain_seed_with_edges_credibility(bipartite_matched_nodes,small_G,big_G)
 
         if small_original_graph == long_G:
-            for i in pre_process_list:
+            for i in pre_process_seeds:
                 global_seeds_nodes.append(i)
         else:
-            for i in pre_process_list:
+            for i in pre_process_seeds:
                 global_seeds_nodes.append([i[1],i[0]])
-        global_seeds_of_nodes_list.append(global_seeds_of_nodes)
+        global_seeds_of_nodes_list.append(global_seeds_nodes)
         crebiliable_matched_index.append([matched_long_cmty_index,matched_short_cmty_index,z_score])
     
     return crebiliable_matched_index,global_seeds_of_nodes_list
@@ -1089,17 +1088,19 @@ def obtain_most_similar_pairs_of_community(long_G,short_G,long_cmty_list,short_c
     # get the matched pairs of communities with score list
     temp_matched_index = obtain_matched_cmty_index_with_best_matching(score_list)
     if len(temp_matched_index) == 0:
+        print "No candidate pairs of communities"
         return [],[],[],[]
 
     print "#################################"
     print "candidate index of communities"
-    print temp_matched_index 
+    for item in temp_matched_index:
+		print"%d <=> %d : %f"%(long_index[item[0]],short_index[item[1]],item[2])
     print "#################################"
-    trust_matched_index_number = 1 
     final_long_index = []
     final_short_index = []
     best_z_score_list= []
     crebiliable_global_seeds_nodes = []
+    #trust_matched_index_number = math.ceil(len(temp_matched_index) * 0.3) 
     if identify_method == "z_score":
         print "calculate the z_score of each pairs communities in candidate list...."
         temp_matched_index,global_seeds_of_nodes_list = identify_most_similar_communities_with_z_score(long_G,short_G,long_cmty_list,short_cmty_list,long_index,short_index,temp_matched_index)
@@ -1107,15 +1108,15 @@ def obtain_most_similar_pairs_of_community(long_G,short_G,long_cmty_list,short_c
         temp_matched_index = sorted(temp_matched_index,key=lambda x:x[2])
         print "calculate the z_score of each pairs communities in candidate list.... ok!"
         for item in temp_matched_index:
-            final_long_index.append(item[0])
-            final_short_index.append(item[1])
-            best_z_score_list.append(item[2])
-            crebiliable_global_seeds_nodes.append(global_seeds_of_nodes_list[item[3]])
-            trust_matched_index_number -= 1
-            if trust_matched_index_number <= 0:
-                break
+            temp_z_score = item[2]
+            if temp_z_score > 10: 
+                final_long_index.append(item[0])
+                final_short_index.append(item[1])
+                best_z_score_list.append(item[2])
+                crebiliable_global_seeds_nodes.append(global_seeds_of_nodes_list[item[3]])
         return final_long_index,final_short_index,best_z_score_list,crebiliable_global_seeds_nodes
 
+    trust_matched_index_number = 1
     temp_matched_index = sorted(temp_matched_index,key=lambda x:x[2])
     #trust_matched_index_number = int(len(temp_matched_index) * 0.5) 
     best_similar_value = []
@@ -1150,7 +1151,8 @@ def obtain_first_third_of_closest_degree_pairs_communities(long_cmty_features,sh
 
     long_cmty_index_nodes = sorted(long_cmty_index_nodes,key=lambda x:x[1],reverse = True)
     short_cmty_index_nodes = sorted(short_cmty_index_nodes,key=lambda x:x[1],reverse = True)
-    length_first_thrid_pairs = math.ceil(len(short_cmty_index_nodes) * 0.3)
+    length_first_thrid_pairs = math.ceil(len(short_cmty_index_nodes) * 0.5)
+    print "length first third pairs: %d"%length_first_thrid_pairs
     
     for i in range(len(short_cmty_index_nodes)):
         long_short_index.append([long_cmty_index_nodes[i][0],short_cmty_index_nodes[i][0]])
@@ -1365,14 +1367,14 @@ def eavalute_accuracy_by_iteration_join_feature(long_G,short_G,long_G_edges,shor
         print matched_index 
         # step 2: get the first third of closest matched pairs of communities
         main_feature_index = obtain_main_feature(long_cmty_features_nonomal,short_cmty_features_nonormal,matched_index)
-        #main_feature_index = 1
         long_short_index = obtain_first_third_of_closest_degree_pairs_communities(long_cmty_features_nonomal,short_cmty_features_nonormal,matched_index,main_feature_index)
         # step 3: obtain the similar score between the first third matched pairs of communities
 
         score_list,long_index,short_index = obtain_score_between_features(long_cmty_features,short_cmty_features,long_short_index,method = method)
         # step 4: choose the first pairs of community as the seed matched pairs
         long_matched_cmty_index,short_matched_cmty_index,best_z_score_list,crebiliable_global_seeds_nodes = obtain_most_similar_pairs_of_community(long_G,short_G,long_cmty_list,long_cmty_list,score_list,long_index,short_index,identify_method = "z_score") 
-        if long_matched_cmty_index == []:
+        if len(long_matched_cmty_index) == 0:
+            print "all z_scores are less than crebility threshold"
             break
         #collect the global seeds nodes
         for item in crebiliable_global_seeds_nodes:
@@ -1389,6 +1391,9 @@ def eavalute_accuracy_by_iteration_join_feature(long_G,short_G,long_G_edges,shor
             if(overlap >= 0.50):
                 community_matched_count += 1
                 print "matched communities : %d"% community_matched_count
+        if len(matched_index) >= len(short_cmty_list):
+			break
+
         # step 5: add a new feature into the unmatched pairs of communities
         update_features_with_matched_communities(long_G,short_G,long_G_edges,short_G_edges,long_top_ten_nodes,short_top_ten_nodes,long_cmty_features,short_cmty_features,matched_index,lastest_matchde_index)
     
@@ -1464,6 +1469,9 @@ def obtain_matched_cmty_index_with_best_matching(score_list):
     loop_count = len(score_list)  
     small_cmty_count = len(score_list[0])
     have_matched_big_new_cmty = {} 
+    if small_cmty_count == 1:
+        matched_index.append([0,0,score_list[0][0]])
+        return matched_index
     for i in range(0,loop_count):
         #print "**************************************************************"
         #obtain the similarity list of ith community with all of the other community
@@ -2112,18 +2120,19 @@ def main():
         for item in short_cmty_features[i]:
             df.write("%.5f "%item)
         df.write("\n")
-    print "community_accuracy_rate : %.4f" % community_accuracy_rate
+    community_accuracy_rate = float(community_matched_count)/total_community_matched_count
+    print "community_accuracy_rate : %.4f" % community_accuracy_rate 
     print "overlap rate: "
     print overlap_list
     overlap_list = np.array(overlap_list)
     print "average overlap rate: %.3f" % (overlap_list.mean())
     df.write("#total number of communities: %d\n"%len(short_cmty_list))
     df.write("#total matched number of communities: %d\n"%len(matched_index))
-    df.write("#real matched communities: %d"%community_matched_count)
-    df.write("#community mapping accuracy rate: %.3f\n"%(float(community_matched_count)/total_community_matched_count))
+    df.write("#real matched communities: %d\n"%community_matched_count)
+    df.write("#community mapping accuracy rate: %.3f\n"%(community_accuracy_rate))
     df.write("#average overlap rate: %.3f\n"%overlap_list.mean())
     df.write("#stderr overlap rate: %.3f\n"%overlap_list.std())
-    df.write("#total number of refine nodes: %d"%total_refine_matched_nodes_count)
+    df.write("#total number of refine nodes: %d\n"%total_refine_matched_nodes_count)
     df.write("#real matched refine nodes: %d"%refine_matched_nodes_count)
     df.write("refine mapping accuracy rate: %.3f"%(float(refine_matched_nodes_count)/total_refine_matched_nodes_count))
     df.write("########################################################################\n")
