@@ -1042,7 +1042,7 @@ def calculate_common_nodes_between_cmties(s_nodes_list,d_nodes_list):
         #print "common rate: %.4f" % common_nodes_rate
         return common_nodes_rate, common_nodes_list
 
-def identify_most_similar_communities_with_z_score(long_G,short_G,long_cmty_list,short_cmty_list,long_index,short_index,matched_index):
+def identify_most_similar_communities_with_z_score(long_G,short_G,long_cmty_list,short_cmty_list,long_index,short_index,matched_index,trust_number_of_pairs = 1):
     '''
     Returns
     --------
@@ -1058,7 +1058,8 @@ def identify_most_similar_communities_with_z_score(long_G,short_G,long_cmty_list
     for item in matched_index:
         global_seeds_nodes = []
         matched_long_cmty_index = long_index[item[0]]
-        matched_short_cmty_index = short_index[item[0]]
+        matched_short_cmty_index = short_index[item[1]]
+        print "%d -> %d" % (matched_long_cmty_index,matched_short_cmty_index)
 
         #step 1: bipartite matching that gets the first matched nodes between each pairs of communities  
         G1 = long_G.subgraph(long_cmty_list[matched_long_cmty_index])
@@ -1071,6 +1072,8 @@ def identify_most_similar_communities_with_z_score(long_G,short_G,long_cmty_list
         #step 2: calculate the z_score cribility and obtain the crebiliable matched nodes
         #pre-process stage: seed nodes detection
         pre_process_seeds,pre_process_seeds_count,pre_process_seeds_accuracy_rate,z_score = obtain_seed_with_edges_credibility(bipartite_matched_nodes,small_G,big_G)
+        if z_score <= 20:
+            continue
 
         if small_original_graph == long_G:
             for i in pre_process_seeds:
@@ -1080,6 +1083,9 @@ def identify_most_similar_communities_with_z_score(long_G,short_G,long_cmty_list
                 global_seeds_nodes.append([i[1],i[0]])
         global_seeds_of_nodes_list.append(global_seeds_nodes)
         crebiliable_matched_index.append([matched_long_cmty_index,matched_short_cmty_index,z_score])
+        trust_number_of_pairs -= 1
+        if trust_number_of_pairs <= 0:
+            break
     
     return crebiliable_matched_index,global_seeds_of_nodes_list
 
@@ -1087,6 +1093,7 @@ def identify_most_similar_communities_with_z_score(long_G,short_G,long_cmty_list
 def obtain_most_similar_pairs_of_community(long_G,short_G,long_cmty_list,short_cmty_list,score_list,long_index,short_index,identify_method = None): 
     # get the matched pairs of communities with score list
     temp_matched_index = obtain_matched_cmty_index_with_best_matching(score_list)
+    temp_matched_index = sorted(temp_matched_index,key=lambda x:x[2])
     if len(temp_matched_index) == 0:
         print "No candidate pairs of communities"
         return [],[],[],[]
@@ -1094,7 +1101,7 @@ def obtain_most_similar_pairs_of_community(long_G,short_G,long_cmty_list,short_c
     print "#################################"
     print "candidate index of communities"
     for item in temp_matched_index:
-		print"%d <=> %d : %f"%(long_index[item[0]],short_index[item[1]],item[2])
+        print"%d <=> %d : %f"%(long_index[item[0]],short_index[item[1]],item[2])
     print "#################################"
     final_long_index = []
     final_short_index = []
@@ -1104,16 +1111,27 @@ def obtain_most_similar_pairs_of_community(long_G,short_G,long_cmty_list,short_c
     if identify_method == "z_score":
         print "calculate the z_score of each pairs communities in candidate list...."
         temp_matched_index,global_seeds_of_nodes_list = identify_most_similar_communities_with_z_score(long_G,short_G,long_cmty_list,short_cmty_list,long_index,short_index,temp_matched_index)
-        temp_matched_index = [[temp_matched_index[i][0],temp_matched_index[i][1],temp_matched_index[i][2],i] for i in range(len(temp_matched_index))]
-        temp_matched_index = sorted(temp_matched_index,key=lambda x:x[2])
+        # ordered by z score
+        #temp_matched_index = [[temp_matched_index[i][0],temp_matched_index[i][1],temp_matched_index[i][2],i] for i in range(len(temp_matched_index))]
         print "calculate the z_score of each pairs communities in candidate list.... ok!"
-        for item in temp_matched_index:
-            temp_z_score = item[2]
-            if temp_z_score > 10: 
-                final_long_index.append(item[0])
-                final_short_index.append(item[1])
-                best_z_score_list.append(item[2])
-                crebiliable_global_seeds_nodes.append(global_seeds_of_nodes_list[item[3]])
+        #for item in temp_matched_index:
+        #    temp_z_score = item[2]
+        #    if temp_z_score > 10: 
+        #        final_long_index.append(item[0])
+        #        final_short_index.append(item[1])
+        #        best_z_score_list.append(item[2])
+        #        crebiliable_global_seeds_nodes.append(global_seeds_of_nodes_list[item[3]])
+        for index in range(len(temp_matched_index)):
+            final_long_index.append(temp_matched_index[index][0])
+            final_short_index.append(temp_matched_index[index][1])
+            best_z_score_list.append(temp_matched_index[index][2])
+            crebiliable_global_seeds_nodes.append(global_seeds_of_nodes_list[index])
+        print "##############################################"
+        print "trust matched index of communities:"
+        for i in range(len(final_long_index)):
+            print "%d-%d-%f\t"%(final_long_index[i],final_short_index[i],best_z_score_list[i]),
+        print "\n"
+        print "##############################################"
         return final_long_index,final_short_index,best_z_score_list,crebiliable_global_seeds_nodes
 
     trust_matched_index_number = 1
@@ -1379,7 +1397,11 @@ def eavalute_accuracy_by_iteration_join_feature(long_G,short_G,long_G_edges,shor
         #collect the global seeds nodes
         for item in crebiliable_global_seeds_nodes:
             crebiliable_global_seeds_nodes_list.extend(item)
-            print "The number of global seeds nodes: %d" % len(crebiliable_global_seeds_nodes_list)
+        real_number_of_mapped_nodes = 0
+        for item in crebiliable_global_seeds_nodes_list:
+            if item[0] == item[1]:
+                real_number_of_mapped_nodes += 1
+        print "The number of global seeds nodes: %f" % (float(real_number_of_mapped_nodes) / len(crebiliable_global_seeds_nodes_list))
         for i in range(len(long_matched_cmty_index)):
             overlap,common_nodes_list = calculate_common_nodes_between_cmties(long_cmty_list[long_matched_cmty_index[i]],short_cmty_list[short_matched_cmty_index[i]]) 
             matched_index.append([long_matched_cmty_index[i],short_matched_cmty_index[i],len(common_nodes_list),overlap])
@@ -1392,7 +1414,7 @@ def eavalute_accuracy_by_iteration_join_feature(long_G,short_G,long_G_edges,shor
                 community_matched_count += 1
                 print "matched communities : %d"% community_matched_count
         if len(matched_index) >= len(short_cmty_list):
-			break
+            break
 
         # step 5: add a new feature into the unmatched pairs of communities
         update_features_with_matched_communities(long_G,short_G,long_G_edges,short_G_edges,long_top_ten_nodes,short_top_ten_nodes,long_cmty_features,short_cmty_features,matched_index,lastest_matchde_index)
