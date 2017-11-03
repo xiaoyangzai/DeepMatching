@@ -6,7 +6,7 @@ import time
 import sys
 import snap
 import community as cmty
-from communityMatching import *
+#from communityMatching import *
 
 def graph_for_test():
 	TG = snap.TUNGraph.New()

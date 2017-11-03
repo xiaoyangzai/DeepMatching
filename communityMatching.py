@@ -1,5 +1,6 @@
 #!/usr/bin/python
 import numpy as np
+import random
 import community as cmty
 import os
 import time as ti
@@ -1198,37 +1199,35 @@ def obtain_shortest_path_between_nodes(long_G,source_nodes_list,dest_nodes_list)
     #print "start to compute the shortes path length...over!"
     return shortest_path_mean_length
         
-def update_features_with_matched_communities(long_G,short_G,long_G_edges,short_G_edges,long_top_ten_nodes,short_top_ten_nodes,long_features_list,short_features_list,matched_index,lastest_matched_index):
+def update_features_with_matched_communities(long_G,short_G,long_G_edges,short_G_edges,long_top_ten_nodes,short_top_ten_nodes,long_features_list,short_features_list,matched_index,crebiliable_global_seeds_nodes):
     '''
     basied the matched pairs of communities as the seed, adding the mean of shotest path lengthes of the top ten nodes sorted by their degree
     '''
     has_matched_long_index = [item[0] for item in matched_index]
     has_matched_short_index = [item[1] for item in matched_index]
 
-    lastest_matched_long_index = [item[0] for item in lastest_matched_index]
-    lastest_matched_short_index = [item[1] for item in lastest_matched_index]
     unmatched_long_index = [i for i in range(len(long_top_ten_nodes)) if i not in has_matched_long_index]
+    overlap_long_nodes = [i[0] for item in crebiliable_global_seeds_nodes for i in item]
     unmatched_short_index = [i for i in range(len(short_top_ten_nodes)) if i not in has_matched_short_index]
+    overlap_short_nodes = [i[1] for item in crebiliable_global_seeds_nodes for i in item]
 
     sum_shortest_path_list = []  
     #mean_shortest_path_list = []
     #median_shortest_path_list = []
     for i in unmatched_long_index:
-        for j in lastest_matched_long_index:
-            #edges_count = obtain_edges_between_nodes(long_G_edges,long_top_ten_nodes[i],long_top_ten_nodes[j])
-            #sum_shortest_path_list.append(edges_count)
-
-            shortest_path_mean_length = obtain_shortest_path_between_nodes(long_G,long_top_ten_nodes[i],long_top_ten_nodes[j])
-            sum_shortest_path_mean_length = sum(shortest_path_mean_length)
-            #mean = np.array(shortest_path_mean_length).mean()
-            sum_shortest_path_list.append(sum_shortest_path_mean_length)
-            #mean_shortest_path_list.append(mean)
-            #median = obtain_midian_list(shortest_path_mean_length)
-            #median_shortest_path_list.append(median)
-            #print "%d -> %d:"%(j,i)
-            #print shortest_path_mean_length 
-            #long_features_list[i].append(sum_shortest_path_mean_length)
-            #long_features_list[i].append(mean)
+        #edges_count = obtain_edges_between_nodes(long_G_edges,long_top_ten_nodes[i],long_top_ten_nodes[j])
+        #sum_shortest_path_list.append(edges_count)
+        shortest_path_mean_length = obtain_shortest_path_between_nodes(long_G,long_top_ten_nodes[i],overlap_long_nodes)
+        sum_shortest_path_mean_length = sum(shortest_path_mean_length)
+        #mean = np.array(shortest_path_mean_length).mean()
+        sum_shortest_path_list.append(sum_shortest_path_mean_length)
+        #mean_shortest_path_list.append(mean)
+        #median = obtain_midian_list(shortest_path_mean_length)
+        #median_shortest_path_list.append(median)
+        #print "%d -> %d:"%(j,i)
+        #print shortest_path_mean_length 
+        #long_features_list[i].append(sum_shortest_path_mean_length)
+        #long_features_list[i].append(mean)
 
     #normal the new feature
     max_sum_value = max(sum_shortest_path_list)  
@@ -1261,20 +1260,19 @@ def update_features_with_matched_communities(long_G,short_G,long_G_edges,short_G
     mean_shortest_path_list = []  
     median_shortest_path_list = []
     for i in unmatched_short_index:
-        for j in lastest_matched_short_index:
-            #edges_count = obtain_edges_between_nodes(short_G_edges,short_top_ten_nodes[i],short_top_ten_nodes[j])
-            #sum_shortest_path_list.append(edges_count)
-            shortest_path_mean_length = obtain_shortest_path_between_nodes(short_G,short_top_ten_nodes[i],short_top_ten_nodes[j])
-            sum_shortest_path_mean_length = sum(shortest_path_mean_length)
-            #mean = np.array(shortest_path_mean_length).mean()
+        #edges_count = obtain_edges_between_nodes(short_G_edges,short_top_ten_nodes[i],short_top_ten_nodes[j])
+        #sum_shortest_path_list.append(edges_count)
+        shortest_path_mean_length = obtain_shortest_path_between_nodes(short_G,short_top_ten_nodes[i],overlap_short_nodes)
+        sum_shortest_path_mean_length = sum(shortest_path_mean_length)
+        #mean = np.array(shortest_path_mean_length).mean()
 
-            sum_shortest_path_list.append(sum_shortest_path_mean_length)
-            #mean_shortest_path_list.append(mean)
-            #median = obtain_midian_list(shortest_path_mean_length)
-            #median_shortest_path_list.append(median)
-            #print "%d -> %d:"%(j,i)
-            #print shortest_path_mean_length 
-            #short_features_list[i].append(edges_count)
+        sum_shortest_path_list.append(sum_shortest_path_mean_length)
+        #mean_shortest_path_list.append(mean)
+        #median = obtain_midian_list(shortest_path_mean_length)
+        #median_shortest_path_list.append(median)
+        #print "%d -> %d:"%(j,i)
+        #print shortest_path_mean_length 
+        #short_features_list[i].append(edges_count)
     #normal the new feature
     max_sum_value = max(sum_shortest_path_list)  
     min_sum_value = min(sum_shortest_path_list)  
@@ -1417,7 +1415,7 @@ def eavalute_accuracy_by_iteration_join_feature(long_G,short_G,long_G_edges,shor
             break
 
         # step 5: add a new feature into the unmatched pairs of communities
-        update_features_with_matched_communities(long_G,short_G,long_G_edges,short_G_edges,long_top_ten_nodes,short_top_ten_nodes,long_cmty_features,short_cmty_features,matched_index,lastest_matchde_index)
+        update_features_with_matched_communities(long_G,short_G,long_G_edges,short_G_edges,long_top_ten_nodes,short_top_ten_nodes,long_cmty_features,short_cmty_features,matched_index,crebiliable_global_seeds_nodes)
     
     #propagation step with the global seeds collected each itration
     refine_match_nodes,refine_real_matched_nodes_count,refine_rate = match_propagation(crebiliable_global_seeds_nodes_list,long_G,short_G)
@@ -1966,12 +1964,34 @@ def obtain_community_detection_in_graph(G1,G2,low_threshold,upper_threshold,dete
 
 def save_graph_community(filename,remarks,sample,low_threshold,upper_threshold):
     # save the grpah and community
-    G = load_graph_from_file(filename,comments = '#',delimiter = ' ')
+    #G = load_graph_from_file(filename,comments = '#',delimiter = ' ')
+    G = nx.karate_club_graph()
     print "dataset has loaded successful!"
     G1,G2 = bi_sample_graph(G,sample)
     G1_community_list,G2_community_list = obtain_community_detection_in_graph(G1,G2,low_threshold,upper_threshold,detect_method = cnm.community_best_partition_with_limit)
+    plt.subplot(121)
+    pos = nx.spring_layout(G1)  # positions for all nodes
+    color_list = ['r','g','b','y','m']
+    index = 0
+    for item in G1_community_list:
+        print item
+        nx.draw_networkx_nodes(G1, pos,nodelist=item,node_color=color_list[index])
+        index += 1
+    print "index = %d"%index
+    index = 0
+    nx.draw_networkx_edges(G1, pos)
+
+    plt.subplot(122)
+    pos = nx.spring_layout(G2)  # positions for all nodes
+    for item in G2_community_list:
+        print item
+        nx.draw_networkx_nodes(G2, pos,nodelist=item,node_color=color_list[index])
+        index += 1
+    nx.draw_networkx_edges(G2, pos)
+    plt.show()
     print "community detection...over!"
     print "save community detection..."
+    return
     #save the G1
     df = open(remarks+".txt","w")
     df.write("######################################################\n")
@@ -2082,10 +2102,13 @@ def load_graph_with_community(filename):
 def main():
     #=============================================================================#
     #save the community
-    #if len(sys.argv) < 6:
-    #        print "usage: ./deepmatching_for_cmty.py [filename] [sample] [low_threshold] [upper_threshold] [remarks]"
-    #        return -1
-    #save_graph_community(sys.argv[1],sys.argv[5],float(sys.argv[2]),int(sys.argv[3]),int(sys.argv[4]))
+    if len(sys.argv) < 6:
+            print "usage: ./deepmatching_for_cmty.py [filename] [sample] [low_threshold] [upper_threshold] [remarks]"
+            return -1
+    print "111111111"
+    save_graph_community(sys.argv[1],sys.argv[5],float(sys.argv[2]),int(sys.argv[3]),int(sys.argv[4]))
+    return
+    print "22222222"
     #=============================================================================#
     #=============================================================================#
     # load the community

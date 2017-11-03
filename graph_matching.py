@@ -2,7 +2,8 @@
 import networkx as nx
 import random
 import numpy as np
-from match_graph_with_bayesian import matching_with_beyesian 
+import matplotlib.pyplot as plt
+#from match_graph_with_bayesian import matching_with_beyesian 
 
 class GraphMatcher():
     def __init__(self, graph1, graph2, seeds, s1=0.5, s2=0.5,
@@ -106,13 +107,17 @@ def main():
 	G = nx.karate_club_graph()
 	G1 = sample_graph(G, 0.8)
 	G2 = sample_graph(G, 0.8)
-	matches = matching_with_beyesian(G1,G2,0.8)
-	length = len(matches)
-	count = 0
-	for item in matches:
-		if item[0] == item[1]:
-			count += 1
-	print "accuratcy rate: %.3f" % (count * 1.0 / length)
+	nx.draw(G1)
+	plt.show()
+	nx.draw(G2)
+	plt.show()
+	#matches = matching_with_beyesian(G1,G2,0.8)
+	#length = len(matches)
+	#count = 0
+	#for item in matches:
+	#	if item[0] == item[1]:
+	#		count += 1
+	#print "accuratcy rate: %.3f" % (count * 1.0 / length)
 
 		 
 
