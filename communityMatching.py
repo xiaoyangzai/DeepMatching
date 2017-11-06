@@ -241,7 +241,7 @@ def transform_gml_to_networkx(gml_filename):
                 line = sf.readline()
 
         sf.close()
-        print "load finished,the Graph nodes: %d\t edges: %d" % (len(G.nodes()),len(G.edges()))
+        print "llllload finished,the Graph nodes: %d\t edges: %d" % (len(G.nodes()),len(G.edges()))
         return G
 
 
@@ -993,7 +993,11 @@ def obtain_score_between_features(long_features_list,short_features_list,long_sh
             return score_list
         else:
             long_index = [item[0] for item in long_short_index]
+            print "long index:"
+            print long_index
             short_index = [item[1] for item in long_short_index]
+            print "short index:"
+            print short_index
             score_list = [[] for i in range(len(long_index))]
             for li in range(len(long_index)):
                 for si in range(len(short_index)):
@@ -1056,24 +1060,30 @@ def identify_most_similar_communities_with_z_score(long_G,short_G,long_cmty_list
     '''
     crebiliable_matched_index = []
     global_seeds_of_nodes_list = []
+    first_pair_z_level = True
+    z_level_greater_than_zero = []
     for item in matched_index:
         global_seeds_nodes = []
         matched_long_cmty_index = long_index[item[0]]
         matched_short_cmty_index = short_index[item[1]]
-        print "%d -> %d" % (matched_long_cmty_index,matched_short_cmty_index)
 
+        print "%d <=> %d"%(matched_long_cmty_index, matched_short_cmty_index)
         #step 1: bipartite matching that gets the first matched nodes between each pairs of communities  
         G1 = long_G.subgraph(long_cmty_list[matched_long_cmty_index])
-        G2 = short_G.subgraph(short_cmty_list[matched_long_cmty_index])
+        G2 = short_G.subgraph(short_cmty_list[matched_short_cmty_index])
         #judge the small number of nodes of graph
         small_original_graph,small_G = (long_G,G1) if G1.order() <= G2.order() else (short_G,G2)
         big_original_graph,big_G = (long_G,G1) if G1.order() > G2.order() else (short_G,G2)
         bipartite_matched_nodes = dm.bipartite_matching(small_G,big_G)
-
         #step 2: calculate the z_score cribility and obtain the crebiliable matched nodes
         #pre-process stage: seed nodes detection
         pre_process_seeds,pre_process_seeds_count,pre_process_seeds_accuracy_rate,z_score = obtain_seed_with_edges_credibility(bipartite_matched_nodes,small_G,big_G)
-        if z_score <= 20:
+        print "Z_level : %f" % z_score
+        if z_score > 0 and first_pair_z_level:
+            first_pair_z_level = False
+            z_level_greater_than_zero.append([matched_long_cmty_index,matched_short_cmty_index,z_score])
+
+        if z_score <= 10:
             continue
 
         if small_original_graph == long_G:
@@ -1087,6 +1097,38 @@ def identify_most_similar_communities_with_z_score(long_G,short_G,long_cmty_list
         trust_number_of_pairs -= 1
         if trust_number_of_pairs <= 0:
             break
+
+    if trust_number_of_pairs > 0:
+        #all z levels are less than threshold(20). Select the first pairs as the credible pair of communities 
+        print "all z_scores are less than crebility threshold"
+        if len(z_level_greater_than_zero) == 0:
+            print "No z score greater than zero!!"
+            return crebiliable_matched_index,global_seeds_of_nodes_list
+
+        global_seeds_nodes = []
+        matched_long_cmty_index = z_level_greater_than_zero[0][0]
+        matched_short_cmty_index = z_level_greater_than_zero[0][1]
+        z_score = z_level_greater_than_zero[0][2]
+        print "first pair: %d -> %d : %f" % (matched_long_cmty_index,matched_short_cmty_index,z_score)
+        #step 1: bipartite matching that gets the first matched nodes between each pairs of communities  
+        G1 = long_G.subgraph(long_cmty_list[matched_long_cmty_index])
+        G2 = short_G.subgraph(short_cmty_list[matched_short_cmty_index])
+        #judge the small number of nodes of graph
+        small_original_graph,small_G = (long_G,G1) if G1.order() <= G2.order() else (short_G,G2)
+        big_original_graph,big_G = (long_G,G1) if G1.order() > G2.order() else (short_G,G2)
+        bipartite_matched_nodes = dm.bipartite_matching(small_G,big_G)
+
+        #step 2: calculate the z_score cribility and obtain the crebiliable matched nodes
+        #pre-process stage: seed nodes detection
+        pre_process_seeds,pre_process_seeds_count,pre_process_seeds_accuracy_rate,z_score = obtain_seed_with_edges_credibility(bipartite_matched_nodes,small_G,big_G)
+        if small_original_graph == long_G:
+            for i in pre_process_seeds:
+                global_seeds_nodes.append(i)
+        else:
+            for i in pre_process_seeds:
+                global_seeds_nodes.append([i[1],i[0]])
+        global_seeds_of_nodes_list.append(global_seeds_nodes)
+        crebiliable_matched_index.append([matched_long_cmty_index,matched_short_cmty_index,z_score])
     
     return crebiliable_matched_index,global_seeds_of_nodes_list
 
@@ -1102,7 +1144,8 @@ def obtain_most_similar_pairs_of_community(long_G,short_G,long_cmty_list,short_c
     print "#################################"
     print "candidate index of communities"
     for item in temp_matched_index:
-        print"%d <=> %d : %f"%(long_index[item[0]],short_index[item[1]],item[2])
+        cn,ov = calculate_common_nodes_between_cmties(short_cmty_list[short_index[item[1]]],long_cmty_list[long_index[item[0]]])
+        print"%d <=> %d : overlap: %f"%(long_index[item[0]],short_index[item[1]],cn)
     print "#################################"
     final_long_index = []
     final_short_index = []
@@ -1170,7 +1213,7 @@ def obtain_first_third_of_closest_degree_pairs_communities(long_cmty_features,sh
 
     long_cmty_index_nodes = sorted(long_cmty_index_nodes,key=lambda x:x[1],reverse = True)
     short_cmty_index_nodes = sorted(short_cmty_index_nodes,key=lambda x:x[1],reverse = True)
-    length_first_thrid_pairs = math.ceil(len(short_cmty_index_nodes) * 0.5)
+    length_first_thrid_pairs = int(math.ceil(len(short_cmty_index_nodes) * 0.5))
     print "length first third pairs: %d"%length_first_thrid_pairs
     
     for i in range(len(short_cmty_index_nodes)):
@@ -1323,7 +1366,7 @@ def show_real_matched_community_pairs(long_cmty_list,short_cmty_list):
         for d in range(len(short_cmty_list)):
             overlap,common_nodes_list = calculate_common_nodes_between_cmties(long_cmty_list[s],short_cmty_list[d]) 
             if overlap >= 0.5:
-                print "%d <--> %d :common: %d  overlap: %f\t"%(s,d,len(common_nodes_list),overlap),
+                print "%d <--> %d :common: %d  overlap: %f"%(s,d,len(common_nodes_list),overlap),
                 real_matched_index.append([s,d,overlap])
                 count += 1
     print "\nreal number of matched communities: %d"%count
@@ -1388,9 +1431,8 @@ def eavalute_accuracy_by_iteration_join_feature(long_G,short_G,long_G_edges,shor
 
         score_list,long_index,short_index = obtain_score_between_features(long_cmty_features,short_cmty_features,long_short_index,method = method)
         # step 4: choose the first pairs of community as the seed matched pairs
-        long_matched_cmty_index,short_matched_cmty_index,best_z_score_list,crebiliable_global_seeds_nodes = obtain_most_similar_pairs_of_community(long_G,short_G,long_cmty_list,long_cmty_list,score_list,long_index,short_index,identify_method = "z_score") 
+        long_matched_cmty_index,short_matched_cmty_index,best_z_score_list,crebiliable_global_seeds_nodes = obtain_most_similar_pairs_of_community(long_G,short_G,long_cmty_list,short_cmty_list,score_list,long_index,short_index,identify_method = "z_score") 
         if len(long_matched_cmty_index) == 0:
-            print "all z_scores are less than crebility threshold"
             break
         #collect the global seeds nodes
         for item in crebiliable_global_seeds_nodes:
@@ -1487,6 +1529,7 @@ def eavalute_accuracy_by_feature_degree_distribution(long_G,short_G,long_cmty_li
 def obtain_matched_cmty_index_with_best_matching(score_list):
     matched_index = []
     loop_count = len(score_list)  
+    print "loop count = %d" % loop_count
     small_cmty_count = len(score_list[0])
     have_matched_big_new_cmty = {} 
     if small_cmty_count == 1:
@@ -1964,34 +2007,33 @@ def obtain_community_detection_in_graph(G1,G2,low_threshold,upper_threshold,dete
 
 def save_graph_community(filename,remarks,sample,low_threshold,upper_threshold):
     # save the grpah and community
-    #G = load_graph_from_file(filename,comments = '#',delimiter = ' ')
-    G = nx.karate_club_graph()
+    G = load_graph_from_file(filename,comments = '#',delimiter = ' ')
+    #G = nx.karate_club_graph()
     print "dataset has loaded successful!"
     G1,G2 = bi_sample_graph(G,sample)
     G1_community_list,G2_community_list = obtain_community_detection_in_graph(G1,G2,low_threshold,upper_threshold,detect_method = cnm.community_best_partition_with_limit)
-    plt.subplot(121)
-    pos = nx.spring_layout(G1)  # positions for all nodes
-    color_list = ['r','g','b','y','m']
-    index = 0
-    for item in G1_community_list:
-        print item
-        nx.draw_networkx_nodes(G1, pos,nodelist=item,node_color=color_list[index])
-        index += 1
-    print "index = %d"%index
-    index = 0
-    nx.draw_networkx_edges(G1, pos)
+    #plt.subplot(121)
+    #pos = nx.spring_layout(G1)  # positions for all nodes
+    #color_list = ['r','g','b','y','m']
+    #index = 0
+    #for item in G1_community_list:
+    #    print item
+    #    nx.draw_networkx_nodes(G1, pos,nodelist=item,node_color=color_list[index])
+    #    index += 1
+    #print "index = %d"%index
+    #index = 0
+    #nx.draw_networkx_edges(G1, pos)
 
-    plt.subplot(122)
-    pos = nx.spring_layout(G2)  # positions for all nodes
-    for item in G2_community_list:
-        print item
-        nx.draw_networkx_nodes(G2, pos,nodelist=item,node_color=color_list[index])
-        index += 1
-    nx.draw_networkx_edges(G2, pos)
-    plt.show()
+    #plt.subplot(122)
+    #pos = nx.spring_layout(G2)  # positions for all nodes
+    #for item in G2_community_list:
+    #    print item
+    #    nx.draw_networkx_nodes(G2, pos,nodelist=item,node_color=color_list[index])
+    #    index += 1
+    #nx.draw_networkx_edges(G2, pos)
+    #plt.show()
     print "community detection...over!"
     print "save community detection..."
-    return
     #save the G1
     df = open(remarks+".txt","w")
     df.write("######################################################\n")
@@ -2102,13 +2144,11 @@ def load_graph_with_community(filename):
 def main():
     #=============================================================================#
     #save the community
-    if len(sys.argv) < 6:
-            print "usage: ./deepmatching_for_cmty.py [filename] [sample] [low_threshold] [upper_threshold] [remarks]"
-            return -1
-    print "111111111"
-    save_graph_community(sys.argv[1],sys.argv[5],float(sys.argv[2]),int(sys.argv[3]),int(sys.argv[4]))
-    return
-    print "22222222"
+    #if len(sys.argv) < 6:
+    #        print "usage: ./deepmatching_for_cmty.py [filename] [sample] [low_threshold] [upper_threshold] [remarks]"
+    #        return -1
+    #save_graph_community(sys.argv[1],sys.argv[5],float(sys.argv[2]),int(sys.argv[3]),int(sys.argv[4]))
+    #return
     #=============================================================================#
     #=============================================================================#
     # load the community

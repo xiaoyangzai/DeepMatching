@@ -67,7 +67,7 @@ def obtain_seed_with_edges_credibility(matches,G1,G2):
 			count += 1
 	seed_rate = float(count) / len(seed_nodes_list)
         cred = mapping_credibility(seed_nodes_list, G1, G2)
-        print 'Credibility:', cred
+        #print 'Credibility:', cred
 
 	return seed_nodes_list,count,seed_rate,cred
 
@@ -83,7 +83,7 @@ def random_mapping_parameters_estimate(G1, G2,nodes1,nodes2):
     edge_consistency_list = np.array(edge_consistency_list)
     return (np.mean(edge_consistency_list), np.std(edge_consistency_list))
 
-def maximum_consistency_matches(matches, G1, G2, nodenum_limit=7, cth = 3):
+def maximum_consistency_matches(matches, G1, G2, nodenum_limit=7, cth = 2):
     '''
     Extract a sublist of matches in order to maximize the consistency between the two subgraphs. The two subgraphs 
     are extracted from the two matching graphs according to the sublist of matches. The consistency between two 
@@ -103,7 +103,7 @@ def maximum_consistency_matches(matches, G1, G2, nodenum_limit=7, cth = 3):
         #left_neighbours = [n for n in G1.neighbors(match[0])]
         #right_neighbours = [n for n in G2.neighbors(match[1])]
         #average_degree = len(left_neighbours) if len(left_neighbours) <= len(right_neighbours) else len(right_neighbours)
-        if deg > cth:
+        if deg >= cth:
             seeds.append(match)
     if len(seeds) < nodenum_limit:
         seeds = []
